@@ -1,0 +1,21 @@
+{
+ "name": "LF Command Center · Manage Performance",
+ "short_name": "Command Center",
+ "description": "Bảng điều hành Global (Wayfair/Amazon) & Local (Shopee kệ 3 tầng), giao việc và Sheet nội bộ",
+ "id": "/Manage-Performance/",
+ "start_url": "./",
+ "scope": "./",
+ "display": "standalone",
+ "background_color": "#efebe3",
+ "theme_color": "#3d312d",
+ "lang": "vi",
+ "icons": [
+  { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+  { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+  { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+ ],
+ "shortcuts": [
+  { "name": "Issue Radar", "url": "./?tab=radar" },
+  { "name": "Sheet", "url": "./?tab=sheet" }
+ ]
+}

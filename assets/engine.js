@@ -67,7 +67,7 @@ function modelGlobal(D, opt = {}) {
   const K = D.kpi || null, ki = K && K.months ? K.months.indexOf(ym) : -1;
   const tgt = { rev: ki >= 0 ? K.rev[ki] : 0, unit: ki >= 0 && K.unit ? K.unit[ki] : 0, profit: ki >= 0 && K.profit ? K.profit[ki] : 0, mkt: ki >= 0 && K.mkt ? K.mkt[ki] : 0 };
   const mtd = period(ms, today), l7 = period(isoAdd(today, -6), today), p7 = period(isoAdd(today, -13), isoAdd(today, -7)), l30 = period(isoAdd(today, -29), today), p30 = period(isoAdd(today, -59), isoAdd(today, -30));
-  const months = (K && K.months || []).map((m, i) => ({ m, tgt: K.rev[i] || 0, tgtUnit: K.unit ? K.unit[i] : 0, act: period(m + '-01', m + '-' + String(daysIn(m)).padStart(2, '0')) }));
+  const months = (K && K.months || []).map((m, i) => ({ m, tgt: K.rev[i] || 0, tgtUnit: K.unit ? K.unit[i] : 0, tgtProfit: K.profit ? K.profit[i] : 0, act: period(m + '-01', m + '-' + String(daysIn(m)).padStart(2, '0')) }));
   // inventory & weeks of cover (CastleGate)
   const sold30 = {}, sold14 = {}, lastSale = {};
   for (const x of pieces) if (x.ch === 'wf') { if (x.date > isoAdd(today, -30)) sold30[x.part] = (sold30[x.part] || 0) + x.qty; if (x.date > isoAdd(today, -14)) sold14[x.part] = (sold14[x.part] || 0) + x.qty; if (!lastSale[x.part] || x.date > lastSale[x.part]) lastSale[x.part] = x.date; }
@@ -84,6 +84,8 @@ function modelGlobal(D, opt = {}) {
     mtd, l7, p7, l30, p30, tgt, ym, dIn, dNow, pace: tgt.rev * dNow / dIn, proj: dNow ? mtd.rev / dNow * dIn : 0, paceUnit: tgt.unit * dNow / dIn, projUnit: dNow ? mtd.units / dNow * dIn : 0,
     months, inv, storage, inbound, camps: Object.values(camps), cases, incAsOf: I.asOf || null, incStats: IS, deds, tt30: { orders: new Set(tt30.map(x => x.po)).size, cost: sum(tt30, x => x.cogs + x.cg - x.net) },
     pieces30: pieces.filter(x => !x.tt && x.ch === 'wf' && x.date > isoAdd(today, -30)), adDays3: adDaily.length ? sum(adDaily.filter(r => r[1] > isoAdd(today, -3)), r => r[4]) : null,
+    daily: (f, t) => { const out = []; for (let d = f; d <= t; d = isoAdd(d, 1)) { const ps = pieces.filter(x => x.date === d && !x.tt); out.push({ d, rev: sum(ps, x => x.rev), net: sum(ps, x => x.net), units: sum(ps, x => x.qty), ads: sum(adDaily.filter(r => r[1] === d), r => r[4]) + sum(amzAd.filter(r => r[0] === d), r => r[3]) }); } return out; },
+    breakdown: (f, t, key) => { const m = {}; for (const x of pieces) { if (x.tt || x.date < f || x.date > t) continue; const p = prod(x.part), k = key === 'sku' ? x.part : key === 'color' ? (p.color || '–') : key === 'size' ? (p.size || '–') : (p.col || 'Other'); const o = m[k] = m[k] || { k, name: key === 'sku' ? (p.name || x.part) : k, rev: 0, units: 0, net: 0, gp: 0 }; o.rev += x.rev; o.units += x.qty; o.net += x.net; o.gp += x.net - x.dda - x.cg - x.amzFee - x.cogs; } return Object.values(m).sort((a, b) => b.rev - a.rev); },
     amzLive: !!((D.amz && D.amz.orders && D.amz.orders.length) || amzAd.length), period };
 }
 
@@ -137,6 +139,7 @@ function modelLocal(d, plan = LOCAL_PLAN, opt = {}) {
   return { ch: 'local', cur: 'VND', today, now, updatedAt: d.meta && d.meta.at ? new Date(d.meta.at * 1000).toISOString() : (opt.updated || null), plan,
     orders, reviews, ads, ledger, fs, vch, disc, products: LIST, period,
     mtd, l7: period(isoAdd(today, -6), today), p7: period(isoAdd(today, -13), isoAdd(today, -7)), l30: period(isoAdd(today, -29), today), p30: period(isoAdd(today, -59), isoAdd(today, -30)),
+    daily: (f, t) => { const out = []; for (let x = f; x <= t; x = isoAdd(x, 1)) { const os = orders.filter(o => o.date === x && !o.cx); out.push({ d: x, units: sum(os, o => o.q), nmv: sum(os, o => o.v), orders: os.length, cx: orders.filter(o => o.date === x && o.cx).length, ads: sum(ads.filter(a => a.date === x), a => a.cost) }); } return out; },
     ym, dIn, dNow, tgtUnits, paceUnits: tgtUnits * dNow / dIn, projUnits: dNow ? mtd.units / dNow * dIn : 0, months,
     soldSince, planCum, whStock: plan.stock0 - soldSince, shopStock: stock, coverDays: u14 ? stock / u14 : null, rentPerUnit: mtd.units ? plan.rent * Math.min(1, dNow / dIn) / mtd.units : null };
 }

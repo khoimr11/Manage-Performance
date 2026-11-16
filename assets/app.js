@@ -142,7 +142,7 @@ window.CC_SNAPSHOT = async () => { if (!S.me) return { ok: false, err: 'not logg
 const sevTag = s => `<span class="sev ${s}" title="${SEVN[s]}">${s}</span>`;
 const kpi = (label, val, meta = '', info = '') => `<div class="kpi card glass"><div class="lbl"><span>${label}</span>${info ? `<span class="info" title="${esc(info)}">i</span>` : ''}</div><div class="val">${val}</div><div class="meta">${meta}</div></div>`;
 const card = (title, sub, body, extra = '') => `<section class="card glass"><div class="card-head"><div><h3>${title}</h3>${sub ? `<p class="sub">${sub}</p>` : ''}</div>${extra}</div>${body}</section>`;
-const delta = (a, b, inv) => { if (!b) return ''; const d = (a - b) / Math.abs(b); const up = d >= 0; return `<span class="delta ${Math.abs(d) < .005 ? 'flat' : (up !== !!inv) ? 'up' : 'down'}">${up ? '▲' : '▼'} ${pct(Math.abs(d))}</span>`; };
+const delta = (a, b, inv) => { if (!b || Math.abs(b) * 5 < Math.abs(a)) return b ? '<span class="delta flat">mới tăng mạnh</span>' : ''; const d = (a - b) / Math.abs(b); const up = d >= 0; return `<span class="delta ${Math.abs(d) < .005 ? 'flat' : (up !== !!inv) ? 'up' : 'down'}">${up ? '▲' : '▼'} ${pct(Math.abs(d))}</span>`; };
 const bar = (p, color) => `<div class="bar-track"><i style="width:${Math.max(0, Math.min(100, p * 100)).toFixed(1)}%;${color ? 'background:' + color : ''}"></i></div>`;
 function toast(t) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2600); }
 function modal(html, bind) { const root = $('#modalRoot'); root.innerHTML = `<div class="modal" role="dialog" aria-modal="true"><div class="box glass">${html}</div></div>`; const m = root.firstChild; m.addEventListener('click', e => { if (e.target === m || e.target.closest('[data-close]')) root.innerHTML = ''; }); if (bind) bind(m); const f = m.querySelector('input,textarea,select'); if (f) setTimeout(() => f.focus(), 30); return m; }
@@ -163,17 +163,17 @@ function briefLines() {
 }
 
 /* ---------------- views ---------------- */
-const TABS_M = [['brief', 'Tổng quan', 'M4 13h6V4H4zm0 7h6v-5H4zm10 0h6v-9h-6zm0-16v5h6V4z'], ['perf', 'Hiệu suất', 'M4 19V9m5 10V5m5 14v-7m5 7V8'], ['radar', 'Issue Radar', 'M12 3 2.5 20h19L12 3zm0 6v5m0 3v.5'], ['tasks', 'Giao việc', 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'], ['team', 'Nhân sự', 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm13 10v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8'], ['routine', 'Định kỳ', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['sheet', 'Sheet', 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 9h18M3 15h18M9 3v18']];
-const TABS_S = [['brief', 'Tổng quan', TABS_M[0][2]], ['radar', 'Issue của tôi', TABS_M[2][2]], ['tasks', 'Việc được giao', TABS_M[3][2]], ['routine', 'Định kỳ', TABS_M[5][2]], ['team', 'Điểm của tôi', TABS_M[4][2]], ['sheet', 'Sheet', TABS_M[6][2]]];
+const TABS_M = [['brief', 'Tổng quan', 'M4 13h6V4H4zm0 7h6v-5H4zm10 0h6v-9h-6zm0-16v5h6V4z'], ['global', 'Global', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z'], ['local', 'Local', 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'], ['radar', 'Issue Radar', 'M12 3 2.5 20h19L12 3zm0 6v5m0 3v.5'], ['tasks', 'Giao việc', 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'], ['team', 'Nhân sự', 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm13 10v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8'], ['routine', 'Định kỳ', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['sheet', 'Sheet', 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 9h18M3 15h18M9 3v18']];
+const TABS_S = [['brief', 'Tổng quan', TABS_M[0][2]], ['__ch', '', ''], ['radar', 'Issue của tôi', TABS_M[3][2]], ['tasks', 'Việc được giao', TABS_M[4][2]], ['routine', 'Định kỳ', TABS_M[6][2]], ['team', 'Điểm của tôi', TABS_M[5][2]], ['sheet', 'Sheet', TABS_M[7][2]]];
 function renderTabs() {
-  const T = isMgr() ? TABS_M : TABS_S, badge = { radar: S.issues.filter(i => i.effSev === 'P0' && i.kind === 'issue').length, tasks: S.led.tasks.filter(t => isMgr() ? t.state === 'review' || t.overdue : t.state !== 'closed').length };
+  const T = isMgr() ? TABS_M : TABS_S.map(x => x[0] === '__ch' ? (S.me.channel === 'global' ? TABS_M[1] : TABS_M[2]) : x), badge = { radar: S.issues.filter(i => i.effSev === 'P0' && i.kind === 'issue').length, tasks: S.led.tasks.filter(t => isMgr() ? t.state === 'review' || t.overdue : t.state !== 'closed').length };
   $('#tabs').innerHTML = T.map(([k, l, d]) => `<button role="tab" data-tab="${k}" aria-selected="${S.tab === k}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><span class="l">${l}</span>${badge[k] ? `<b class="sev P0" style="min-width:20px;height:18px;font-size:10.5px">${badge[k]}</b>` : ''}</button>`).join('');
 }
 function render() {
   renderTabs();
   if (S.tab === 'sheet') { $('#view').innerHTML = '<section id="sheetRoot" class="sheet-root"></section>'; window.CCSheet.mount($('#sheetRoot'), S.sheetHost); $('#view').onclick = null; return; }
   window.CCSheet.unmount();
-  const v = { brief: viewBrief, perf: viewPerf, radar: viewRadar, tasks: viewTasks, team: viewTeam, routine: viewRoutine }[S.tab] || viewBrief;
+  const v = { brief: viewBrief, global: viewGlobal, local: viewLocal, radar: viewRadar, tasks: viewTasks, team: viewTeam, routine: viewRoutine }[S.tab] || viewBrief;
   $('#view').innerHTML = v(); bindView();
 }
 function freshPill(label, iso, err) {
@@ -221,51 +221,99 @@ function vbars(rows, fmt) {
   const max = Math.max(1, ...rows.map(r => Math.max(r.a, r.t)));
   return `<div class="vbars">${rows.map(r => `<div class="m" title="${esc(r.l)} · thực tế ${fmt(r.a)} · target ${fmt(r.t)}${r.t ? ' · ' + pct(r.a / r.t) : ''}"><span class="pc">${r.t && r.a ? pct(r.a / r.t) : ''}</span><div class="bar" style="height:${r.a / max * 140}px;${r.future ? 'opacity:.35' : ''}"></div>${r.t ? `<div class="tg" style="bottom:${r.t / max * 140}px"></div>` : ''}<span class="lb">${esc(r.l)}</span></div>`).join('')}</div><div class="legend2"><span><i style="background:var(--s1)"></i>Thực tế</span><span><i style="border-top:2px dashed var(--ink2);height:0;border-radius:0"></i>Target</span></div>`;
 }
-function viewPerf() {
-  const G = S.G, L = S.L, fx = S.fx, out = [];
-  // combined P&L (VND)
-  if (G || L) {
-    const gRev = G ? G.mtd.rev * fx : 0, gProfit = G ? G.mtd.profit * fx : 0;
-    const rentMtd = L ? L.plan.rent * L.dNow / L.dIn : 0, lNet = L ? L.mtd.net : 0, lProfit = lNet * 0.97 - rentMtd;
-    const lTgtUnits = L ? L.tgtUnits : 0;
-    out.push(`<div class="page-head"><div><h1>Hiệu suất hợp nhất</h1><p>Tháng ${new Date().getMonth() + 1} đến hôm nay · quy đổi $1 = ${nfVN.format(fx)}₫ (đổi trong Cài đặt)</p></div></div>
-    <div class="grid g-kpi">${kpi('Doanh thu 2 kênh (MTD)', vndS(gRev + (L ? L.mtd.nmv : 0)) + '₫', `Global ${vndS(gRev)}₫ · Local ${vndS(L ? L.mtd.nmv : 0)}₫`, 'Global: Revenue (base cost) × tỷ giá. Local: NMV')}
-      ${kpi('Lợi nhuận 2 kênh (MTD)', vndS(gProfit + lProfit) + '₫', `Global ${vndS(gProfit)}₫ · Local ${vndS(lProfit)}₫`, 'Global: profit sau COGS, phí, deduction, ads. Local: theo bảng target = doanh thu thuần thực về − 3% commission − thuê kho phân bổ (chưa gồm COGS)')}
-      ${G ? kpi('Global · % Mkt fee 30 ngày', pct(G.l30.mktPct, 1), `TACoS ${pct(G.l30.tacos, 1)} · ROAS 7 ngày ${G.l7.roas ? G.l7.roas.toFixed(2) : '–'}`) : ''}
-      ${L ? kpi('Local · Phí sàn 30 ngày', pct(L.l30.take, 1), `Hủy ${pct(L.l30.cxRate)} · trả hàng ${pct(L.l30.retRate)} · FS ${pct(L.l30.fsShare)} NMV`) : ''}</div>`);
-  }
-  if (G) {
-    const m = G.months.filter(x => x.m <= G.ym || x.tgt).slice(-8);
-    out.push(`<div class="grid g-21">${card('Global · Revenue vs target theo tháng', 'Cashflow 26+27 · USD', vbars(m.map(x => ({ l: 'T' + (+x.m.slice(5, 7)), a: x.act.rev, t: x.tgt, future: x.m > G.ym })), usd))}
-      ${card('Global · MTD', `so với cùng kỳ 30 ngày trước`, `<table class="t"><tr><th>Chỉ số</th><th class="r">MTD</th><th class="r">Target</th><th class="r">30 ngày</th></tr>
-        <tr><td>Revenue</td><td class="r">${usd(G.mtd.rev)}</td><td class="r">${usd(G.tgt.rev)}</td><td class="r">${usd(G.l30.rev)} ${delta(G.l30.rev, G.p30.rev)}</td></tr>
-        <tr><td>NMV</td><td class="r">${usd(G.mtd.net)}</td><td class="r">–</td><td class="r">${usd(G.l30.net)} ${delta(G.l30.net, G.p30.net)}</td></tr>
-        <tr><td>Units</td><td class="r">${G.mtd.units}</td><td class="r">${G.tgt.unit || '–'}</td><td class="r">${G.l30.units} ${delta(G.l30.units, G.p30.units)}</td></tr>
-        <tr><td>Profit</td><td class="r">${usd(G.mtd.profit)}</td><td class="r">${usd(G.tgt.profit)}</td><td class="r">${usd(G.l30.profit)} ${delta(G.l30.profit, G.p30.profit)}</td></tr>
-        <tr><td>Margin</td><td class="r">${pct(G.mtd.margin, 1)}</td><td class="r">${G.tgt.rev ? pct(G.tgt.profit / G.tgt.rev, 1) : '–'}</td><td class="r">${pct(G.l30.margin, 1)}</td></tr>
-        <tr><td>% Mkt fee</td><td class="r">${pct(G.mtd.mktPct, 1)}</td><td class="r">${G.tgt.rev ? pct(G.tgt.mkt / G.tgt.rev, 1) : '–'}</td><td class="r">${pct(G.l30.mktPct, 1)}</td></tr>
-        <tr><td>Returns + Incidents</td><td class="r">${usd(G.mtd.returns + G.mtd.incidents)}</td><td class="r">–</td><td class="r">${usd(G.l30.returns + G.l30.incidents)}</td></tr></table>
-        <p class="sub" style="margin-top:10px"><a href="${CFG.DASH_GLOBAL}" target="_blank" rel="noopener">Mở dash Lignarc ↗</a></p>`)}</div>`);
-    out.push(card('Global · Tồn kho CastleGate & đồng hồ lưu kho', 'Cover = tồn ÷ tốc độ bán 30 ngày', `<div class="tw"><table class="t"><tr><th>SKU</th><th class="r">Tồn</th><th class="r">Bán 30N</th><th class="r">Cover (ngày)</th><th>Bán gần nhất</th></tr>${G.inv.filter(r => r.onHand || r.sold30).sort((a, b) => (a.coverDays ?? 1e9) - (b.coverDays ?? 1e9)).map(r => `<tr><td><b>${esc(r.part)}</b></td><td class="r">${r.onHand}</td><td class="r">${r.sold30}</td><td class="r">${r.coverDays == null ? '∞' : Math.round(r.coverDays)}</td><td>${dmy(r.lastSale)}</td></tr>`).join('')}</table></div>
-      ${G.storage.length ? `<p class="sub" style="margin-top:10px">${G.storage.map(s => `<b>${esc(s.po)}</b>: nhận ${dmy(s.recv)} · hết miễn phí ${dmy(s.end)} (${s.daysLeft >= 0 ? 'còn ' + s.daysLeft : 'quá ' + -s.daysLeft} ngày) · còn ${s.units} units`).join('<br>')}</p>` : ''}`));
-  }
-  if (L) {
-    out.push(`<div class="grid g-21">${card('Local · Kệ bán vs kế hoạch theo tháng', 'Kế hoạch 2.700 kệ (T11/2026 → T5/2027)', vbars(L.months.map(x => ({ l: 'T' + (+x.m.slice(5, 7)), a: x.act.units, t: x.tgt, future: x.m > L.ym })), v => Math.round(v) + ' kệ'))}
-      ${card('Local · Kế hoạch vs thực tế', 'Theo bảng target kệ 3 tầng', `<table class="t"><tr><th>Chỉ số</th><th class="r">Thực tế</th><th class="r">Kế hoạch</th></tr>
-        <tr><td>Kệ bán tháng này</td><td class="r">${L.mtd.units}</td><td class="r">${L.tgtUnits} (tiến độ ${Math.round(L.paceUnits)})</td></tr>
-        <tr><td>Dự phóng cuối tháng</td><td class="r">${Math.round(L.projUnits)}</td><td class="r">${L.tgtUnits}</td></tr>
-        <tr><td>Luỹ kế từ T11</td><td class="r">${L.soldSince}</td><td class="r">${Math.round(L.planCum)}</td></tr>
-        <tr><td>Tồn kho Suối Nghệ (ước tính)</td><td class="r">${L.whStock}</td><td class="r">${L.months.find(m => m.m === L.ym) ? L.months.find(m => m.m === L.ym).endStock + ' cuối tháng' : '–'}</td></tr>
-        <tr><td>Giá bán TB / kệ</td><td class="r">${vnd(L.l30.asp)}</td><td class="r">≥ ${vnd(L.plan.floorPrice)}</td></tr>
-        <tr><td>Thực thu / kệ</td><td class="r">${vnd(L.l30.unitNet)}</td><td class="r">${vnd(L.plan.netPerUnit)}</td></tr>
-        <tr><td>Phí sàn % NMV</td><td class="r">${pct(L.l30.take, 1)}</td><td class="r">~25%</td></tr>
-        <tr><td>Ads Shopee % NMV</td><td class="r">${pct(L.l30.nmv ? L.l30.adCost / L.l30.nmv : null, 1)}</td><td class="r">4%</td></tr>
-        <tr><td>Thuê kho / kệ (tháng này)</td><td class="r">${L.rentPerUnit ? vnd(L.rentPerUnit) : '–'}</td><td class="r">20tr/tháng</td></tr></table>
-        <p class="sub" style="margin-top:10px"><a href="${CFG.DASH_LOCAL}" target="_blank" rel="noopener">Mở dash Kệ 3 tầng ↗</a></p>`)}</div>`);
-  }
-  return out.join('') || '<div class="empty2">Chưa có dữ liệu kênh nào</div>';
+/* KPI from sheet "Cashflow 26+27" (Revenue, Units, Profit, MKT come from the Lignarc data; these are the extra plan lines) */
+const GPLAN = {
+  months: ['2026-10', '2026-11', '2026-12', '2027-01', '2027-02', '2027-03', '2027-04', '2027-05', '2027-06', '2027-07', '2027-08', '2027-09', '2027-10', '2027-11', '2027-12'],
+  netRev: [10847, 19284, 6970, 34088, 45835, 101540, 126924, 118916, 130404, 216590, 333527, 336333, 364577, 344943, 286731],
+  promo: [4726, 8256, 2431, 9625, 10736, 24098, 39897, 30750, 28994, 65214, 78943, 73829, 130208, 134257, 62122],
+  ads: [889, 1743, 618, 2102, 2645, 5513, 9806, 7065, 6455, 14478, 17329, 16406, 29264, 26041, 14217]
+};
+const gp = (k, m) => { const i = GPLAN.months.indexOf(m); return i >= 0 ? GPLAN[k][i] : 0; };
+const mLab = m => 'T' + (+m.slice(5, 7)) + '/' + m.slice(2, 4);
+function ring(frac, label, color) {
+  const r = 70, c = 2 * Math.PI * r, f = Math.max(0, Math.min(1, frac || 0));
+  return `<svg class="ring" viewBox="0 0 170 170"><circle cx="85" cy="85" r="${r}" fill="none" stroke="var(--grid)" stroke-width="14"/><circle cx="85" cy="85" r="${r}" fill="none" stroke="${color}" stroke-width="14" stroke-linecap="round" stroke-dasharray="${c * f} ${c}" transform="rotate(-90 85 85)"/><text x="85" y="88" text-anchor="middle" style="font:750 32px var(--font);fill:var(--ink);letter-spacing:-1px">${esc(pct(frac))}</text><text x="85" y="110" text-anchor="middle" style="font:12px var(--font);fill:var(--muted)">${esc(label)}</text></svg>`;
+}
+function dbars(rows, key, fmt, color) {
+  const max = Math.max(1, ...rows.map(r => r[key] || 0));
+  return `<div class="dbars">${rows.map((r, i) => `<div class="db" title="${dmy(r.d)} · ${esc(fmt(r[key] || 0))}"><i style="height:${(r[key] || 0) / max * 100}%;background:${color || 'var(--s1)'}"></i>${i % 5 === 0 || i === rows.length - 1 ? `<span>${dmy(r.d)}</span>` : ''}</div>`).join('')}</div>`;
+}
+function hbars(list, fmt, n = 8, color) {
+  const top = list.slice(0, n), max = Math.max(1, ...top.map(x => x.v)), tot = list.reduce((s, x) => s + x.v, 0) || 1;
+  return `<div class="hb">${top.map(x => `<div class="hbr"><span class="hbl" title="${esc(x.l)}">${esc(x.l)}</span><div class="hbt"><i style="width:${x.v / max * 100}%;background:${color || 'var(--s1)'}"></i></div><b>${esc(fmt(x.v))}</b><em>${pct(x.v / tot)}</em></div>`).join('') || '<div class="empty2">Chưa có dữ liệu</div>'}</div>`;
+}
+function vs(a, t, inv) { if (!t) return ''; const r = a / t; return `<span class="delta ${(r >= 1) !== !!inv ? 'up' : 'down'}">${pct(r)} KH</span>`; }
+
+function viewGlobal() {
+  const G = S.G;
+  if (!G) return `<div class="page-head"><div><h1>Global · Wayfair / Amazon</h1></div></div><section class="card glass"><div class="empty2">${esc(S.src.gErr || 'Chưa có dữ liệu Lignarc')}</div></section>`;
+  const t = G.tgt, m = G.mtd, ym = G.ym, behind = m.rev < G.pace;
+  const netT = gp('netRev', ym), promoT = gp('promo', ym), adsT = gp('ads', ym);
+  const first = '2026-10', last = E.isoAdd(ym + '-01', 62).slice(0, 7);
+  const months = G.months.filter(x => x.m >= first && x.m <= last);
+  const d30 = G.daily(E.isoAdd(G.today, -29), G.today);
+  const col = G.breakdown(E.isoAdd(G.today, -89), G.today, 'col').map(x => ({ l: x.k, v: x.rev }));
+  const sku = G.breakdown(E.isoAdd(G.today, -89), G.today, 'sku');
+  const kRows = G.months.filter(x => x.m >= first);
+  return `<div class="page-head"><div><h1>Global · Wayfair / Amazon</h1><p>KPI theo sheet Cashflow 26+27 · USD · cập nhật ${S.G.updatedAt ? dt(S.G.updatedAt) : '–'} · phụ trách ${esc(OWN.trang.name)}</p></div><div class="fresh"><a class="btn ghost" href="${CFG.DASH_GLOBAL}" target="_blank" rel="noopener">Mở dash Lignarc ↗</a></div></div>
+  <section class="hero card glass">${ring(t.rev ? m.rev / t.rev : 0, 'target ' + mLab(ym), behind ? 'var(--s2)' : 'var(--s4)')}
+    <div><h2>Revenue ${mLab(ym)} · tháng đến hôm nay so với KPI</h2><div class="big">${usd(m.rev)} <span class="of">/ ${usd(t.rev)}</span></div>
+    <div class="line">Ngày ${G.dNow}/${G.dIn}: tiến độ cần ${usd(G.pace)} · <b style="color:${behind ? 'var(--crit-ink)' : 'var(--good-ink)'}">${behind ? 'thiếu' : 'vượt'} ${usd(Math.abs(m.rev - G.pace))}</b> · dự phóng cả tháng ${usd(G.proj)} · cần ${usd(Math.max(0, (t.rev - m.rev) / Math.max(1, G.dIn - G.dNow + 1)))}/ngày còn lại</div>
+    <div class="hero-stats"><div><b>${m.units} / ${t.unit || '–'}</b><span>Units / KPI</span></div><div><b>${usd(m.net)} / ${usd(netT)}</b><span>NMV / Net Rev KPI</span></div><div><b>${usd(m.profit)} / ${usd(t.profit)}</b><span>Profit / KPI</span></div><div><b>${pct(m.margin, 1)} / ${t.rev ? pct(t.profit / t.rev, 1) : '–'}</b><span>Margin / KPI</span></div><div><b>${pct(m.mktPct, 1)} / ${t.rev ? pct(t.mkt / t.rev, 1) : '–'}</b><span>% Mkt fee / KPI</span></div></div></div></section>
+  <div class="grid g-kpi">
+    ${kpi('Promotion (MTD)', usd(m.promo), `KPI ${usd(promoT)} ${vs(m.promo, promoT * G.dNow / G.dIn, true)}`, 'Revenue − NMV. So với KPI theo tiến độ ngày')}
+    ${kpi('Ads spend (MTD)', usd(m.ads), `KPI ${usd(adsT)} ${vs(m.ads, adsT * G.dNow / G.dIn, true)}`, 'Wayfair Ads + Amazon Ads')}
+    ${kpi('TACoS · ROAS 30 ngày', pct(G.l30.tacos, 1), `ROAS ${G.l30.roas ? G.l30.roas.toFixed(2) : '–'} · ACoS ${pct(G.l30.acos, 1)}`)}
+    ${kpi('Returns + Incidents (MTD)', usd(m.returns + m.incidents), `Incident rate ${pct(G.incStats.incidentRate)} · BRR ${pct(G.incStats.brr)}`)}
+  </div>
+  <div class="grid g-21">
+    ${card('Revenue so với KPI theo tháng', 'Cột: thực tế · gạch: KPI Cashflow 26+27', vbars(months.map(x => ({ l: mLab(x.m), a: x.act.rev, t: x.tgt, future: x.m > ym })), usd))}
+    ${card('Doanh thu theo collection', '90 ngày gần nhất', hbars(col, usd, 6))}
+  </div>
+  ${card('Doanh thu theo ngày', '30 ngày gần nhất · Revenue (base cost)', dbars(d30, 'rev', usd) + `<div class="legend2" style="margin-top:22px"><span>Tổng 30 ngày ${usd(G.l30.rev)} · ${G.l30.units} units · ${G.l30.orders} đơn</span></div>`)}
+  ${card('Bảng KPI theo tháng', 'Thực tế / KPI · tháng chưa tới hiển thị KPI', `<div class="tw"><table class="t kt"><thead><tr><th>Chỉ số</th>${kRows.map(x => `<th class="r ${x.m === ym ? 'cur' : ''}">${mLab(x.m)}</th>`).join('')}</tr></thead><tbody>
+    ${[['Revenue', x => x.act.rev, x => x.tgt, usd], ['Units', x => x.act.units, x => x.tgtUnit, v => Math.round(v)], ['NMV / Net Rev', x => x.act.net, x => gp('netRev', x.m), usd], ['Profit', x => x.act.profit, x => (S.G.months.find(y => y.m === x.m) || {}).tgtProfit, usd], ['Promotion', x => x.act.promo, x => gp('promo', x.m), usd], ['Ads', x => x.act.ads, x => gp('ads', x.m), usd]].map(([lab, a, tg, f]) => `<tr><td><b>${lab}</b></td>${kRows.map(x => { const past = x.m <= ym, av = a(x), tv = tg(x); return `<td class="r ${x.m === ym ? 'cur' : ''}">${past ? `<b>${f(av)}</b><br><span class="sub">${tv ? f(tv) + ' · ' + pct(av / tv) : '–'}</span>` : `<span class="sub">${tv ? f(tv) : '–'}</span>`}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>`)}
+  <div class="grid g-2">
+    ${card('Top SKU', '90 ngày · doanh thu · lợi nhuận gộp trước ads', `<div class="tw"><table class="t"><tr><th>SKU</th><th class="r">Units</th><th class="r">Revenue</th><th class="r">LN gộp</th></tr>${sku.slice(0, 10).map(x => `<tr><td><b>${esc(x.k)}</b><br><span class="sub">${esc(x.name)}</span></td><td class="r">${x.units}</td><td class="r">${usd(x.rev)}</td><td class="r" style="color:${x.gp < 0 ? 'var(--crit-ink)' : 'inherit'}">${usd(x.gp)}</td></tr>`).join('')}</table></div>`)}
+    ${card('Tồn kho CastleGate & đồng hồ lưu kho', 'Cover = tồn ÷ tốc độ bán 30 ngày', `<div class="tw"><table class="t"><tr><th>SKU</th><th class="r">Tồn</th><th class="r">Bán 30N</th><th class="r">Cover</th></tr>${G.inv.filter(r => r.onHand || r.sold30).sort((a, b) => (a.coverDays ?? 1e9) - (b.coverDays ?? 1e9)).slice(0, 12).map(r => `<tr><td><b>${esc(r.part)}</b></td><td class="r">${r.onHand}</td><td class="r">${r.sold30}</td><td class="r">${r.coverDays == null ? '∞' : Math.round(r.coverDays) + 'n'}</td></tr>`).join('')}</table></div>${G.storage.length ? `<p class="sub" style="margin-top:10px">${G.storage.map(x => `<b>${esc(x.po)}</b>: hết miễn phí ${dmy(x.end)} (${x.daysLeft >= 0 ? 'còn ' + x.daysLeft : 'quá ' + -x.daysLeft} ngày) · còn ${x.units} units`).join('<br>')}</p>` : ''}`)}
+  </div>
+  ${issueMini('global')}`;
 }
 
+/* Kệ 3 tầng plan (target table): fees on Net GMV and monthly warehouse rent */
+function viewLocal() {
+  const L = S.L;
+  if (!L) return `<div class="page-head"><div><h1>Local · Shopee kệ 3 tầng</h1></div></div><section class="card glass"><div class="empty2">${esc(S.src.lErr || 'Chưa có dữ liệu Shopee')}</div></section>`;
+  const P = L.plan, m = L.mtd, ym = L.ym, tu = L.tgtUnits, behind = m.units < L.paceUnits;
+  const rent = P.rent * L.dNow / L.dIn, netRev = m.nmv - m.fee - m.adCost, profit = netRev * 0.97 - rent;
+  const planNet = tu * P.floorPrice, planNetRev = planNet * (1 - 0.3598 - 0.04) - 0 , planProfit = (planNet - planNet * 0.3598 - tu * 0 - planNet * 0.04) * 0.97 - P.rent;
+  const d30 = L.daily(E.isoAdd(L.today, -29), L.today);
+  const src = { fs: 0, other: 0 }; L.orders.filter(o => !o.cx && o.date > E.isoAdd(L.today, -30)).forEach(o => { if (o.fs) src.fs += o.v; else src.other += o.v; });
+  const r30 = L.reviews.filter(r => r.date > E.isoAdd(L.today, -30)), avg = r30.length ? r30.reduce((s, r) => s + r.star, 0) / r30.length : null;
+  return `<div class="page-head"><div><h1>Local · Shopee kệ 3 tầng</h1><p>Kế hoạch 2.700 kệ (T11/2026 → T5/2027) · VND · cập nhật ${L.updatedAt ? dt(L.updatedAt) : '–'} · phụ trách ${esc(OWN.phu.name)}</p></div><div class="fresh"><a class="btn ghost" href="${CFG.DASH_LOCAL}" target="_blank" rel="noopener">Mở dash Kệ 3 tầng ↗</a></div></div>
+  <section class="hero card glass">${ring(tu ? m.units / tu : 0, 'kế hoạch ' + mLab(ym), behind ? 'var(--s2)' : 'var(--s4)')}
+    <div><h2>Kệ bán ${mLab(ym)} · tháng đến hôm nay so với kế hoạch</h2><div class="big">${m.units} <span class="of">/ ${tu || '–'} kệ</span></div>
+    <div class="line">Ngày ${L.dNow}/${L.dIn}: tiến độ cần ${Math.round(L.paceUnits)} kệ · <b style="color:${behind ? 'var(--crit-ink)' : 'var(--good-ink)'}">${behind ? 'thiếu' : 'vượt'} ${Math.abs(Math.round(m.units - L.paceUnits))} kệ</b> · dự phóng ${Math.round(L.projUnits)} kệ · cần ${Math.max(0, Math.ceil((tu - m.units) / Math.max(1, L.dIn - L.dNow + 1)))} kệ/ngày còn lại</div>
+    <div class="hero-stats"><div><b>${vndS(m.nmv)}₫</b><span>NMV tháng</span></div><div><b>${vnd(L.l30.unitNet)}</b><span>Thực thu/kệ · KH ${vnd(P.netPerUnit)}</span></div><div><b>${vndS(profit)}₫ / ${vndS(planProfit)}₫</b><span>Profit (chưa COGS) / KH</span></div><div><b>${L.soldSince} / ${Math.round(L.planCum)}</b><span>Luỹ kế từ T11 / KH</span></div><div><b>${L.whStock}</b><span>Tồn kho Suối Nghệ (ước)</span></div></div></div></section>
+  <div class="grid g-kpi">
+    ${kpi('Giá bán TB / kệ (30N)', vnd(L.l30.asp), `giá sàn ${vnd(P.floorPrice)} · niêm yết ${vnd(P.listPrice)}`)}
+    ${kpi('Phí sàn (30N)', pct(L.l30.take, 1), `KH ~36% Net GMV · voucher shop ${vndS(L.l30.sh)}₫`)}
+    ${kpi('Hủy · Trả hàng (30N)', `${pct(L.l30.cxRate)} · ${pct(L.l30.retRate)}`, `${L.l30.cx} đơn hủy / ${L.l30.all} đơn`)}
+    ${kpi('Ads Shopee (30N)', vndS(L.l30.adCost) + '₫', `${pct(L.l30.nmv ? L.l30.adCost / L.l30.nmv : null, 1)} NMV (KH 4%) · ROAS ${L.l30.roas ? L.l30.roas.toFixed(1) : '–'}`)}
+  </div>
+  <div class="grid g-21">
+    ${card('Kệ bán so với kế hoạch theo tháng', 'Cột: thực tế · gạch: kế hoạch', vbars(L.months.map(x => ({ l: mLab(x.m), a: x.act.units, t: x.tgt, future: x.m > ym })), v => Math.round(v) + ' kệ'))}
+    ${card('Nguồn doanh thu 30 ngày', 'Flash Sale so với giá thường', hbars([{ l: 'Flash Sale', v: src.fs }, { l: 'Giá KM / khác', v: src.other }], v => vndS(v) + '₫', 4, 'var(--s4)') + `<p class="sub" style="margin-top:12px">Rating 30 ngày: <b>${avg ? avg.toFixed(2) + '★' : '–'}</b> (${r30.length} đánh giá) · Tồn Shopee ${L.shopStock} kệ${L.coverDays ? ' ≈ ' + L.coverDays.toFixed(0) + ' ngày bán' : ''}</p>`)}
+  </div>
+  ${card('Kệ bán theo ngày', '30 ngày gần nhất', dbars(d30, 'units', v => v + ' kệ', 'var(--s4)') + `<div class="legend2" style="margin-top:22px"><span>Tổng 30 ngày ${L.l30.units} kệ · ${L.l30.orders} đơn · NMV ${vndS(L.l30.nmv)}₫</span></div>`)}
+  ${card('P&L tháng này so với bảng target', 'Kế hoạch phân bổ theo số ngày đã qua · chưa gồm COGS', `<div class="tw"><table class="t"><tr><th>Hạng mục</th><th class="r">Thực tế MTD</th><th class="r">Kế hoạch tới hôm nay</th><th class="r">Kế hoạch cả tháng</th></tr>
+    ${(() => { const k = L.dNow / L.dIn, pn = planNet, rows = [['Sản lượng (kệ)', m.units, tu * k, tu, v => Math.round(v)], ['Net GMV / NMV', m.nmv, pn * k, pn, vnd], ['Phí sàn', m.fee, pn * 0.3598 * k, pn * 0.3598, vnd], ['Quảng cáo', m.adCost, pn * 0.04 * k, pn * 0.04, vnd], ['Doanh thu thuần thực về', netRev, pn * 0.6002 * k, pn * 0.6002, vnd], ['Thuê kho Suối Nghệ', rent, P.rent * k, P.rent, vnd], ['Profit (chưa COGS)', profit, (pn * 0.6002 * 0.97 - P.rent) * k, pn * 0.6002 * 0.97 - P.rent, vnd], ['Thực thu / kệ', L.mtd.unitNet, P.netPerUnit, P.netPerUnit, vnd]]; return rows.map(([l, a, b, c, f]) => `<tr><td><b>${l}</b></td><td class="r"><b>${f(a)}</b></td><td class="r">${f(b)}</td><td class="r sub">${f(c)}</td></tr>`).join(''); })()}</table></div>`)}
+  ${issueMini('local')}`;
+}
+function issueMini(ch) {
+  const is = S.issues.filter(i => i.channel === ch && i.kind === 'issue').slice(0, 5);
+  return card('Issue đang mở của kênh', `${S.issues.filter(i => i.channel === ch).length} issue & cơ hội · xếp theo mức độ`, is.length ? is.map(i => issueRow(i, true)).join('') : '<div class="empty2">Không có issue 🎉</div>', `<button class="btn ghost" data-goto="radar">Mở Issue Radar</button>`);
+}
 function filteredIssues() {
   const f = S.f;
   return S.issues.filter(i => (f.ch === 'all' || i.channel === f.ch) && (!f.sev.size || f.sev.has(i.effSev)) && (f.owner === 'all' || i.owner === f.owner) && (!f.unassigned || !i.task) && (f.kind === 'all' || i.kind === f.kind));
@@ -508,6 +556,13 @@ $('#loginForm').addEventListener('submit', async e => {
   catch (x) { $('#loginErr').textContent = x.message === 'bad' ? 'Sai tài khoản hoặc mật khẩu' : x.message; }
   finally { btn.disabled = false; btn.textContent = 'Đăng nhập'; }
 });
+/* installable app (Chrome › Cài app) */
+let installEvt = null;
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#installBtn').hidden = false; });
+addEventListener('appinstalled', () => { $('#installBtn').hidden = true; toast('Đã cài Command Center — mở từ màn hình chính / Start menu'); });
+$('#installBtn').onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $('#installBtn').hidden = true; };
+{ const qt = new URLSearchParams(location.search).get('tab'); if (qt) S.tab = qt; }
 if (isDemo) { $('#demoBand').hidden = false; start({ ...DEMO_USERS.manager }); }
 else { const saved = store.get('mp-me') || sessionStorage.getItem('mp-me'); if (saved) start(JSON.parse(saved)); else { $('#login').hidden = false; setTimeout(() => $('#user').focus(), 50); } }
 })();

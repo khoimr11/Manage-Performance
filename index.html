@@ -7,10 +7,13 @@
 <meta name="theme-color" content="#efebe3" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#14110f" media="(prefers-color-scheme: dark)">
 <title>Manage Performance · LF Command Center</title>
-<link rel="icon" href="assets/mark-walnut.png">
+<link rel="icon" href="assets/favicon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Command Center">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <link rel="stylesheet" href="assets/styles.css?v=3">
-<link rel="stylesheet" href="assets/cc.css?v=2">
+<link rel="stylesheet" href="assets/cc.css?v=3">
 </head>
 <body>
 <div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -34,6 +37,7 @@
     <header class="topbar glass">
       <div class="brand" style="display:flex;align-items:center;gap:10px"><span class="mark">LF</span><div><b>Command Center</b><small id="sub">Global · Local</small></div></div>
       <div class="top-actions">
+        <button class="btn pri" id="installBtn" hidden title="Cài Command Center thành app trên máy">⬇ Cài app</button>
         <span class="who" id="who"></span>
         <button class="icon-btn" id="refreshBtn" title="Tải lại dữ liệu" aria-label="Tải lại dữ liệu"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6"/></svg></button>
         <button class="icon-btn" id="settingsBtn" title="Cài đặt" aria-label="Cài đặt"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
@@ -50,9 +54,9 @@
 <script src="assets/config.js?v=2"></script>
 <script src="assets/store.js?v=1"></script>
 <script src="assets/playbook.js?v=1"></script>
-<script src="assets/engine.js?v=1"></script>
+<script src="assets/engine.js?v=3"></script>
 <script src="assets/demo.js?v=1"></script>
 <script src="assets/sheet.js?v=1"></script>
-<script src="assets/app.js?v=2"></script>
+<script src="assets/app.js?v=3"></script>
 </body>
 </html>
