@@ -176,7 +176,7 @@ function detect(G, L, ctx = {}, N = null) {
       steps: ['Bóc tách SKU lỗ trong tab Profit của dash Lignarc', 'Giảm promotion trên SKU margin âm; dừng campaign ACoS > 40%', 'Xử lý gốc rễ incident (đóng gói) để giảm deduction'], closeWhen: 'Margin 30 ngày ≥ 15%' });
     const mk = G.l30.mktPct, mkT = G.tgt.mkt && G.tgt.rev ? G.tgt.mkt / G.tgt.rev : 0.25;
     if (G.l30.rev > 0 && mk != null && mk > mkT + 0.03) add({ ...o, rule: 'G-MKT-OVER', sev: mk > mkT + 0.10 ? 'P1' : 'P2', title: `% Mkt fee ${(mk * 100).toFixed(1)}% vượt kế hoạch ${(mkT * 100).toFixed(0)}%`, detail: `Promotion ${usd(G.l30.promo)} + Ads ${usd(G.l30.ads)} trên revenue ${usd(G.l30.rev)} (30 ngày).`, impactVnd: (mk - mkT) * G.l30.rev * fx,
-      steps: ['Rà các promotion Wayfair đang chạy, tắt chương trình không hiệu quả', 'Cắt campaign ROAS < 2', 'Báo cáo % Mkt theo SKU cho chị trước thứ 6'], closeWhen: `% Mkt fee ≤ ${(mkT * 100 + 3).toFixed(0)}%` });
+      steps: ['Rà các promotion Wayfair đang chạy, tắt chương trình không hiệu quả', 'Cắt campaign ROAS < 2', 'Báo cáo % Mkt theo SKU cho quản lý trước thứ 6'], closeWhen: `% Mkt fee ≤ ${(mkT * 100 + 3).toFixed(0)}%` });
     // incidents & returns
     const asOfAge = G.incAsOf ? isoDiff(G.incAsOf, G.today) : 99;
     if (asOfAge > 8) add({ ...o, rule: 'G-INC-CHECK', sev: 'P1', title: `Chưa kiểm tra Incidents & Returns ${asOfAge >= 99 ? '' : asOfAge + ' ngày'}`, detail: 'Không có API cho incident/return/deduction — phải kiểm tra Partner Home hằng tuần (thứ 5).', steps: ['Mở Partner Home › Incidents and Resolutions › Customer Incidents and Returns', 'Cập nhật case mới vào dash (task "Lignarc weekly incidents check")', 'Kiểm tra trang Deductions / Accounts Receivable'], closeWhen: 'Dữ liệu incident được cập nhật ≤ 8 ngày', age: asOfAge >= 99 ? null : asOfAge });
@@ -188,7 +188,7 @@ function detect(G, L, ctx = {}, N = null) {
         title: `${isRet ? 'Return' : 'Incident ' + (c.issue || '')} · ${c.po} · ${c.part}`, detail: `${c.detail || ''}${c.comment ? ' — “' + c.comment + '”' : ''}${c.photos ? ' · ' + c.photos + ' ảnh' : ''}${c.deduction ? ' · trừ ' + usd(c.deduction) : ' · chưa trừ tiền'}`, since: c.date, age,
         impactVnd: (c.deduction || 0) * fx,
         steps: isRet ? ['Đọc lý do return, đối chiếu mô tả/kích thước trên listing', 'Nếu lý do do listing (sai size): sửa title/bullet/ảnh kích thước', 'Đối soát deduction = wholesale × 96% × 75%'] : ['Xem ảnh/video khách gửi, xác định lỗi đóng gói hay vận chuyển', 'Bật/gửi replacement part thay vì để Wayfair refund toàn bộ', 'Nếu lỗi vận chuyển: mở dispute deduction kèm bằng chứng; báo nhà máy cải tiến carton'],
-        closeWhen: 'evidence: hướng xử lý case (replacement part / dispute / sửa listing) được chị duyệt' });
+        closeWhen: 'evidence: hướng xử lý case (replacement part / dispute / sửa listing) được quản lý duyệt' });
     }
     const ir = G.incStats.incidentRate, brr = G.incStats.brr != null ? G.incStats.brr : G.incStats.returnRate;
     if (ir != null && ir > 0.03) add({ ...o, rule: 'G-INC-RATE', sev: ir > 0.05 ? 'P0' : 'P1', title: `Incident rate ${(ir * 100).toFixed(0)}% (ngưỡng 3%)`, detail: `Replacement parts shipped ${G.incStats.partsShipped != null ? (G.incStats.partsShipped * 100).toFixed(0) + '%' : 'n/a'}. Tỉ lệ cao làm Wayfair giảm hiển thị và tăng deduction.`,

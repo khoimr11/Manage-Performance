@@ -89,7 +89,7 @@ window.CCPB = {
 "cadence": "monthly",
 "due": "Ngày 3 hằng tháng 17:00",
 "verify": "evidence",
-"evidence": "file/link báo cáo tháng được chị Nhi duyệt"
+"evidence": "file/link báo cáo tháng được quản lý duyệt"
 },
 {
 "id": "R-P-ORDER-AM",
@@ -170,7 +170,7 @@ window.CCPB = {
 "cadence": "monthly",
 "due": "Ngày 3 hằng tháng 17:00",
 "verify": "evidence",
-"evidence": "file/link báo cáo tháng được chị Nhi duyệt"
+"evidence": "file/link báo cáo tháng được quản lý duyệt"
 },
 {
 "id": "R-M-WEEKLY-REVIEW",
@@ -183,10 +183,10 @@ window.CCPB = {
 }
 ],
 "messages": {
-"assign": "Chào {name},\nHệ thống ghi nhận việc cần em xử lý:\n[{taskId}] {title}\nChi tiết: {detail}\nCác bước cần làm:\n{steps}\nHạn hoàn thành: {deadline}\nĐiều kiện đóng việc: {closeWhen}\nEm xác nhận đã nhận việc và cập nhật kết quả trên dashboard trước hạn nhé. Cảm ơn em.",
-"remind": "Chào {name},\nViệc [{taskId}] {title} đã quá hạn ({deadline}) và chưa đạt điều kiện đóng: {closeWhen}.\nChi tiết hiện tại: {detail}\nMức độ ưu tiên đã được nâng lên một cấp. Em phản hồi trong vòng 4 giờ: nguyên nhân chậm trễ và thời điểm hoàn thành mới.\nCác bước còn lại:\n{steps}\nChị cần em chủ động báo cáo khi có vướng mắc, không chờ hệ thống nhắc.",
-"warning": "CẢNH CÁO – {name}\nVấn đề [{taskId}] {title} đã lặp lại {count} lần trong 30 ngày (các ngày: {detail}).\nĐây là lần cảnh cáo chính thức và được lưu vào hồ sơ đánh giá hiệu suất.\nYêu cầu:\n1. Nộp phân tích nguyên nhân gốc và biện pháp phòng ngừa trước {deadline}.\n2. Hoàn thành các bước: {steps}\n3. Việc chỉ được đóng khi: {closeWhen}\nNếu tái phát lần tiếp theo, chị sẽ trao đổi trực tiếp về trách nhiệm công việc.",
-"praise": "Chào {name},\nChị ghi nhận em đã xử lý tốt [{taskId}] {title} — {detail}, hoàn thành trước hạn {deadline} và dữ liệu đã xác nhận kết quả.\nCách làm chủ động như vậy là đúng tinh thần chị mong muốn. Em tiếp tục phát huy nhé. Cảm ơn em!"
+"assign": "Việc mới được giao — {name}\n[{taskId}] {title}\nChi tiết: {detail}\nCác bước:\n{steps}\nHạn hoàn thành: {deadline}\nĐiều kiện đóng việc: {closeWhen}\nXác nhận nhận việc và cập nhật kết quả trên dashboard trước hạn.",
+"remind": "Nhắc việc quá hạn — {name}\n[{taskId}] {title} đã quá hạn ({deadline}), chưa đạt điều kiện đóng: {closeWhen}.\nHiện trạng: {detail}\nMức ưu tiên đã nâng một cấp. Phản hồi trong 4 giờ: nguyên nhân chậm và thời điểm hoàn thành mới.\nCác bước còn lại:\n{steps}\nKhi có vướng mắc, chủ động báo cáo, không chờ hệ thống nhắc.",
+"warning": "CẢNH BÁO — {name}\nVấn đề [{taskId}] {title} lặp lại {count} lần trong 30 ngày (các ngày: {detail}).\nCảnh báo chính thức, được lưu vào hồ sơ đánh giá hiệu suất.\nYêu cầu:\n1. Nộp phân tích nguyên nhân gốc và biện pháp phòng ngừa trước {deadline}.\n2. Hoàn thành các bước: {steps}\n3. Chỉ đóng việc khi: {closeWhen}\nNếu tái phát, quản lý sẽ trao đổi trực tiếp về trách nhiệm công việc.",
+"praise": "Ghi nhận — {name}\n[{taskId}] {title}: {detail}. Hoàn thành trước hạn {deadline}, dữ liệu đã xác nhận kết quả.\nCách xử lý chủ động, đúng tinh thần đội. Cảm ơn."
 },
 "meta": {
 "G-DATA-STALE": {
@@ -194,7 +194,7 @@ window.CCPB = {
 "steps": [
 "Kiểm tra log sync và token đăng nhập Wayfair Partner Home, chạy lại sync thủ công",
 "Nếu lỗi do Wayfair đổi định dạng file, tải report thủ công (Orders, CastleGate Inventory, Ads) và upload tạm",
-"Báo chị Nhi nguyên nhân + thời gian khắc phục dự kiến trong 2 giờ"
+"Báo quản lý nguyên nhân + thời gian khắc phục dự kiến trong 2 giờ"
 ],
 "close": "now - global.dataFreshness <= 26h",
 "trigger": "now - global.dataFreshness > 26h (lỡ lượt sync 14:23 hằng ngày)"
@@ -204,7 +204,7 @@ window.CCPB = {
 "steps": [
 "Đăng nhập lại Shopee Seller Centre trên máy chạy collector, kiểm tra cookie/phiên hết hạn",
 "Chạy lại collector thủ công và xác nhận số đơn hôm qua khớp Seller Centre",
-"Báo chị Nhi nếu không khắc phục được trong 2 giờ"
+"Báo quản lý nếu không khắc phục được trong 2 giờ"
 ],
 "close": "now - local.dataFreshness <= 26h",
 "trigger": "now - local.dataFreshness > 26h (lỡ lượt sync 15:41 hằng ngày)"
@@ -234,7 +234,7 @@ window.CCPB = {
 "steps": [
 "Vào Seller Central > Partner Network > Develop Apps kiểm tra trạng thái và yêu cầu bổ sung",
 "Mở case Seller Support nếu quá 14 ngày không phản hồi, lưu case ID",
-"Trong lúc chờ: xuất report Orders và Advertising hằng tuần thủ công gửi chị Nhi"
+"Trong lúc chờ: xuất report Orders và Advertising hằng tuần thủ công gửi quản lý"
 ],
 "close": "amazon.apiStatus == 'approved' AND amazon.orders có dữ liệu sync",
 "trigger": "amazon.apiStatus != 'approved' AND số ngày từ khi nộp hồ sơ > 14"
@@ -254,7 +254,7 @@ window.CCPB = {
 "steps": [
 "Xác định 3 SKU kéo hụt nhiều nhất (so sánh units/ngày tháng này vs tháng trước)",
 "Đề xuất hành động cụ thể: tăng bid Wayfair Sponsored Products, đăng ký Wayfair promotion/Way Day, kiểm tra tồn CastleGate",
-"Gửi chị Nhi kế hoạch bù hụt kèm projection cuối tháng"
+"Gửi quản lý kế hoạch bù hụt kèm projection cuối tháng"
 ],
 "close": "global pace revenue >= 90% trong 3 lần sync liên tiếp",
 "trigger": "dayOfMonth >= 5 AND 75% <= global.mtd.revenue / (target.rev × dayOfMonth / daysInMonth) < 90%"
@@ -274,7 +274,7 @@ window.CCPB = {
 "steps": [
 "Bóc tách lãi theo SKU: so profit thực vs kế hoạch, chỉ ra chi phí vượt (ads, deduction, promotion)",
 "Cắt các campaign/promotion đang làm SKU lỗ",
-"Gửi chị Nhi bảng nguyên nhân và mức lãi phục hồi dự kiến"
+"Gửi quản lý bảng nguyên nhân và mức lãi phục hồi dự kiến"
 ],
 "close": "global.projection.profit >= 90% target.profit trong 3 lần sync liên tiếp",
 "trigger": "dayOfMonth >= 7 AND global.projection.profit < 90% target.profit"
@@ -284,7 +284,7 @@ window.CCPB = {
 "steps": [
 "Xếp hạng SKU theo margin 14d, đánh dấu SKU < 10%",
 "Kiểm tra giá wholesale, promotion đang chạy và chi phí ads của SKU đó",
-"Đề xuất điều chỉnh giá hoặc dừng promotion, gửi chị Nhi duyệt"
+"Đề xuất điều chỉnh giá hoặc dừng promotion, gửi quản lý duyệt"
 ],
 "close": "global.margin 14d >= 15% AND >= target margin - 5pp",
 "trigger": "global.margin (rolling 14d) < 15%, HOẶC global.margin 14d < (target.profit / target.rev) - 5pp"
@@ -294,7 +294,7 @@ window.CCPB = {
 "steps": [
 "Bóc tách chi phí SKU: deduction, return, ads, promotion",
 "Tạm dừng ads/promotion của SKU trên Wayfair Advertising",
-"Đề xuất giá mới hoặc phương án xả hàng có kiểm soát cho chị Nhi"
+"Đề xuất giá mới hoặc phương án xả hàng có kiểm soát cho quản lý"
 ],
 "close": "sku.profit 14d >= 0",
 "trigger": "sku.profit 30d < 0 AND sku.units 30d >= 3"
@@ -304,7 +304,7 @@ window.CCPB = {
 "steps": [
 "Liệt kê campaign/promotion chiếm chi phí lớn nhất MTD",
 "Giảm daily budget hoặc bid các campaign ROAS thấp trong Wayfair Advertising",
-"Báo chị Nhi mức %mkt dự kiến cuối tháng sau điều chỉnh"
+"Báo quản lý mức %mkt dự kiến cuối tháng sau điều chỉnh"
 ],
 "close": "global.mktPct MTD <= target.mkt% + 1pp",
 "trigger": "global.mktPct MTD > target.mkt% + 2pp (target.mkt% = target.mkt / target.rev)"
@@ -314,7 +314,7 @@ window.CCPB = {
 "steps": [
 "Kiểm tra campaign nào tăng spend mạnh trong 7 ngày",
 "Hạ bid các keyword/listing chi tiêu cao không ra đơn",
-"Cập nhật kế hoạch ads tuần gửi chị Nhi"
+"Cập nhật kế hoạch ads tuần gửi quản lý"
 ],
 "close": "global.tacos 7d <= 10%",
 "trigger": "global.tacos 7d > 12%"
@@ -344,7 +344,7 @@ window.CCPB = {
 "steps": [
 "Phân loại case 30 ngày theo SKU và type (Damaged/Return/Mis-information)",
 "Chỉ ra 1–2 nguyên nhân gốc chiếm > 50% case",
-"Trình chị Nhi phương án khắc phục (gia cố thùng, sửa mô tả, đổi nhà vận chuyển) có deadline"
+"Trình quản lý phương án khắc phục (gia cố thùng, sửa mô tả, đổi nhà vận chuyển) có deadline"
 ],
 "close": "global.incidentRate 30d <= 3%",
 "trigger": "global.incidentRate 30d > 3%; nâng P0 nếu > 5%"
@@ -364,7 +364,7 @@ window.CCPB = {
 "steps": [
 "Tổng hợp ảnh các case, xác định điểm hư hỏng chung",
 "Làm việc với nhà máy về đóng gói/QC, lưu biên bản",
-"Gửi chị Nhi báo cáo nguyên nhân gốc + hành động khắc phục"
+"Gửi quản lý báo cáo nguyên nhân gốc + hành động khắc phục"
 ],
 "close": "evidence: báo cáo nguyên nhân gốc + xác nhận nhà máy; tự đóng hẳn khi SKU 0 case cùng type trong 30 ngày tiếp theo",
 "trigger": "Cùng SKU có >= 3 case cùng type trong 30 ngày"
@@ -394,7 +394,7 @@ window.CCPB = {
 "steps": [
 "Xác định loại khấu trừ (chargeback, compliance, damage, ASN) trong Remittance",
 "Mở dispute trong 24h nếu có căn cứ",
-"Báo chị Nhi số tiền, nguyên nhân và khả năng thu hồi"
+"Báo quản lý số tiền, nguyên nhân và khả năng thu hồi"
 ],
 "close": "Khoản đã reconciled AND (dispute ID tồn tại HOẶC xác nhận khấu trừ hợp lệ có nguyên nhân ghi rõ)",
 "trigger": "Một khoản deduction >= 200 USD, HOẶC tổng deduction 30d > 2% global.nmv 30d"
@@ -404,9 +404,9 @@ window.CCPB = {
 "steps": [
 "Liệt kê SKU/units còn lại của PO và weeks of cover hiện tại",
 "Đề xuất đẩy bán: promotion Wayfair, tăng bid ads cho các SKU này",
-"Ước tính phí lưu kho nếu không bán hết, gửi chị Nhi"
+"Ước tính phí lưu kho nếu không bán hết, gửi quản lý"
 ],
-"close": "po.remainingUnits == 0, HOẶC evidence: kế hoạch xả hàng được chị Nhi duyệt",
+"close": "po.remainingUnits == 0, HOẶC evidence: kế hoạch xả hàng được quản lý duyệt",
 "trigger": "14 < (po.receiveDate + 90 - today) <= 30 AND po.remainingUnits > 0"
 },
 "G-CG-FEE-START": {
@@ -414,7 +414,7 @@ window.CCPB = {
 "steps": [
 "Tính số units lô đầu dự kiến còn lại ngày 31/12 theo tốc độ bán hiện tại",
 "Ước tính phí lưu kho tháng 1/2027 theo bảng phí CastleGate",
-"Gửi chị Nhi kế hoạch xả trước 31/12"
+"Gửi quản lý kế hoạch xả trước 31/12"
 ],
 "close": "tồn lô đầu == 0, HOẶC evidence: kế hoạch đã duyệt + phí dự kiến được đưa vào Cashflow",
 "trigger": "today >= 2026-12-01 AND today < 2026-12-31 AND tồn CastleGate thuộc lô đầu > 0"
@@ -424,7 +424,7 @@ window.CCPB = {
 "steps": [
 "Kiểm tra inbound PO và ngày nhận dự kiến",
 "Tạm dừng ads của SKU để tránh lãng phí",
-"Lập đề xuất đặt hàng khẩn với nhà máy, gửi chị Nhi"
+"Lập đề xuất đặt hàng khẩn với nhà máy, gửi quản lý"
 ],
 "close": "sku.onHand > 0",
 "trigger": "sku.onHand == 0 AND sku.units 30d > 0 AND không có inbound PO nhận trong 7 ngày"
@@ -434,7 +434,7 @@ window.CCPB = {
 "steps": [
 "Tính số lượng đặt = (lead time + 8 tuần) × units/tuần - (onHand + inbound)",
 "Xác nhận năng lực và giá với nhà máy",
-"Gửi đề xuất PO cho chị Nhi duyệt"
+"Gửi đề xuất PO cho quản lý duyệt"
 ],
 "close": "sku.weeksOfCover (tính cả PO đã đặt) >= 10",
 "trigger": "sku.weeksOfCover (onHand + inbound) / avg units per week 28d < 10 tuần; nâng P0 nếu < 6 tuần"
@@ -484,7 +484,7 @@ window.CCPB = {
 "steps": [
 "Xếp hạng campaign theo ROAS 7d",
 "Chuyển ngân sách từ campaign ROAS < 2 sang campaign ROAS >= 5",
-"Báo kế hoạch phân bổ ngân sách tuần với chị Nhi"
+"Báo kế hoạch phân bổ ngân sách tuần với quản lý"
 ],
 "close": "ROAS tổng 7d >= 3.5",
 "trigger": "sum(sales) / sum(spend) toàn bộ campaign 7d < 3 AND spend 7d >= 100 USD"
@@ -504,9 +504,9 @@ window.CCPB = {
 "steps": [
 "Kiểm tra trạng thái campaign và phương thức thanh toán trong Wayfair Advertising",
 "Bật lại campaign hoặc xác nhận lý do dừng có chủ đích",
-"Báo chị Nhi nếu dừng do thanh toán/tài khoản"
+"Báo quản lý nếu dừng do thanh toán/tài khoản"
 ],
-"close": "sum(campaign.spend) 1d > 0, HOẶC evidence: chị Nhi xác nhận dừng có chủ đích",
+"close": "sum(campaign.spend) 1d > 0, HOẶC evidence: quản lý xác nhận dừng có chủ đích",
 "trigger": "sum(campaign.spend) 3d == 0 AND target.mkt tháng > 0"
 },
 "G-TT-FOLLOW": {
@@ -544,7 +544,7 @@ window.CCPB = {
 "steps": [
 "Cập nhật trang theo bộ sưu tập (Kathryn, Calix, Zena, Vestra)",
 "Gắn SKU mới, gỡ SKU hết hàng",
-"Gửi link Brand Store cho chị Nhi duyệt"
+"Gửi link Brand Store cho quản lý duyệt"
 ],
 "close": "evidence: link Brand Store live + ngày cập nhật",
 "trigger": "brandStore.status != 'live' OR brandStore.lastUpdate > 60 ngày"
@@ -574,7 +574,7 @@ window.CCPB = {
 "steps": [
 "Kiểm tra lịch flash sale, voucher và ads 7 ngày tới trên Seller Centre",
 "Đăng ký thêm slot Flash Sale của Shop và tăng ngân sách Shopee Ads",
-"Gửi chị Nhi kế hoạch bù hụt có số đơn kỳ vọng/ngày"
+"Gửi quản lý kế hoạch bù hụt có số đơn kỳ vọng/ngày"
 ],
 "close": "local pace units >= 90% trong 3 lần sync liên tiếp",
 "trigger": "dayOfMonth >= 5 AND 75% <= local.mtd.units / (planUnits[tháng] × dayOfMonth / daysInMonth) < 90%"
@@ -584,7 +584,7 @@ window.CCPB = {
 "steps": [
 "Bóc tách chi phí 7d: phí cố định, dịch vụ, giao dịch, voucher shop, PiShip, Affiliate so với kế hoạch",
 "Chỉ ra khoản vượt và điều chỉnh (giảm giá trị voucher, giảm % hoa hồng Affiliate)",
-"Báo chị Nhi thực nhận/kệ sau điều chỉnh"
+"Báo quản lý thực nhận/kệ sau điều chỉnh"
 ],
 "close": "thực nhận/kệ 7d >= 189.051₫",
 "trigger": "sum(income) / sum(qty) đơn không hủy 7d < 189.051₫"
@@ -594,7 +594,7 @@ window.CCPB = {
 "steps": [
 "Xác định nguồn giá: Flash Sale, chương trình giảm giá, voucher chồng voucher",
 "Sửa giá/tắt chương trình ngay trong Kênh Marketing trên Seller Centre",
-"Báo chị Nhi số đơn và số tiền lỗ"
+"Báo quản lý số đơn và số tiền lỗ"
 ],
 "close": "0 đơn dưới giá sàn trong 48h kể từ khi sửa",
 "trigger": "Có đơn (không hủy) với salePrice/kệ < 315.000₫, HOẶC income/kệ < 185.000₫"
@@ -604,9 +604,9 @@ window.CCPB = {
 "steps": [
 "Đối chiếu Ví Shopee > Doanh thu chi tiết từng đơn để thấy phí tăng",
 "Kiểm tra gói dịch vụ đang đăng ký (Freeship Xtra, Voucher Xtra)",
-"Đề xuất tắt/giữ gói với số liệu cho chị Nhi"
+"Đề xuất tắt/giữ gói với số liệu cho quản lý"
 ],
-"close": "tỷ lệ phí 7d <= 25.4%, HOẶC evidence: chị Nhi chấp nhận mức phí mới",
+"close": "tỷ lệ phí 7d <= 25.4%, HOẶC evidence: quản lý chấp nhận mức phí mới",
 "trigger": "(phí cố định + phí dịch vụ + phí xử lý giao dịch) / NMV 7d > 26.4% (kế hoạch 24.4% + 2pp), HOẶC PiShip/đơn > 5.052₫"
 },
 "L-ORD-UNCONFIRMED": {
@@ -624,7 +624,7 @@ window.CCPB = {
 "steps": [
 "Kiểm tra trạng thái chuẩn bị hàng tại kho Suối Nghệ",
 "Gọi đơn vị vận chuyển/đặt lại lịch lấy hàng trong Seller Centre",
-"Báo chị Nhi nếu kho không xuất kịp"
+"Báo quản lý nếu kho không xuất kịp"
 ],
 "close": "Tất cả đơn có pickupTime trong vòng 24h kể từ createTime",
 "trigger": "order.status == 'Chờ lấy hàng' AND now - order.createTime > 24h; nâng P0 nếu > 48h"
@@ -644,7 +644,7 @@ window.CCPB = {
 "steps": [
 "Phân loại lý do hủy (khách hủy, shop hủy, giao thất bại)",
 "Khắc phục nguyên nhân chính (tồn kho, thời gian giao, mô tả)",
-"Báo chị Nhi tỷ lệ và hành động"
+"Báo quản lý tỷ lệ và hành động"
 ],
 "close": "local.cancelRate 7d <= 4%",
 "trigger": "local.cancelRate 7d > 5% AND số đơn 7d >= 10; nâng P0 nếu > 10%"
@@ -694,7 +694,7 @@ window.CCPB = {
 "steps": [
 "Tổng hợp chủ đề phàn nàn trong review 1–3★",
 "Khắc phục nguyên nhân chính với kho/nhà cung cấp",
-"Báo chị Nhi hành động cụ thể"
+"Báo quản lý hành động cụ thể"
 ],
 "close": "avg star 30d >= 4.7 AND không giảm so với 30d trước",
 "trigger": "avg star 30d < 4.7, HOẶC avg star 30d giảm >= 0.1 so với 30d trước"
@@ -724,7 +724,7 @@ window.CCPB = {
 "steps": [
 "Sửa giá slot hoặc xóa slot trên Seller Centre trước giờ bắt đầu",
 "Nếu đang chạy, giảm stock FS về 0",
-"Báo chị Nhi nếu giá thấp là chủ đích (cần duyệt bằng văn bản)"
+"Báo quản lý nếu giá thấp là chủ đích (cần duyệt bằng văn bản)"
 ],
 "close": "Không còn slot FS sắp/đang chạy với giá < 315.000₫",
 "trigger": "flashSale.slot.price < 315.000₫ AND slot.end > now"
@@ -734,7 +734,7 @@ window.CCPB = {
 "steps": [
 "Tạo Chương trình của Shop trong Kênh Marketing với giá đã duyệt",
 "Đặt thời gian chương trình nối tiếp, không để khoảng trống",
-"Chụp màn hình giá hiển thị gửi chị Nhi"
+"Chụp màn hình giá hiển thị gửi quản lý"
 ],
 "close": "Có shop discount hoặc FS đang chạy",
 "trigger": "Không có shop discount đang chạy AND không có FS đang chạy (khách đang thấy giá 700.000₫)"
@@ -773,7 +773,7 @@ window.CCPB = {
 "why": "Mỗi tháng xả chậm thêm 20.000.000₫ tiền thuê kho.",
 "steps": [
 "Tính số tháng thuê kho thêm dự kiến theo tốc độ hiện tại",
-"Đề xuất kênh bổ sung (Affiliate, livestream, B2B sỉ) với chị Nhi",
+"Đề xuất kênh bổ sung (Affiliate, livestream, B2B sỉ) với quản lý",
 "Cập nhật kế hoạch tháng tới có số liệu"
 ],
 "close": "units lũy kế >= 95% kế hoạch lũy kế",
@@ -814,7 +814,7 @@ window.CCPB = {
 "steps": [
 "Đối chiếu Ví quảng cáo: tách free credit và tiền nạp",
 "Dừng nạp thêm cho tới khi ROAS >= 8",
-"Báo chị Nhi số tiền đã nạp và doanh thu tạo ra"
+"Báo quản lý số tiền đã nạp và doanh thu tạo ra"
 ],
 "close": "ROAS 7d >= 8, HOẶC chi tiêu tiền nạp 7d == 0",
 "trigger": "Chi tiêu từ tiền nạp (paid top-up, không phải free credit) 7d >= 1.000.000₫ AND ads.gmv / ads.cost 7d < 8"
@@ -822,7 +822,7 @@ window.CCPB = {
 "L-ADS-WALLET-LOW": {
 "why": "Quảng cáo đang hiệu quả bị ngắt do hết tiền.",
 "steps": [
-"Xin duyệt nạp ví với chị Nhi kèm ROAS 7d",
+"Xin duyệt nạp ví với quản lý kèm ROAS 7d",
 "Nạp tiền vào Ví quảng cáo sau khi được duyệt",
 "Ghi số tiền nạp vào sổ ledger"
 ],
@@ -836,7 +836,7 @@ window.CCPB = {
 "Đưa giá về mức đã duyệt nếu không có phê duyệt",
 "Ghi giá mới và lý do vào dashboard"
 ],
-"close": "evidence: tin nhắn chị Nhi duyệt giá mới, hoặc giá đã về mức đã duyệt",
+"close": "evidence: tin nhắn quản lý duyệt giá mới, hoặc giá đã về mức đã duyệt",
 "trigger": "product.listPrice hoặc product.promoPrice khác so với lần sync trước, HOẶC listPrice != 700.000₫"
 },
 "L-OPP-CTR-CVR": {
@@ -854,7 +854,7 @@ window.CCPB = {
 "steps": [
 "Tăng ngân sách ads 30% và thêm slot FS",
 "Đảm bảo stock sàn và năng lực xuất kho",
-"Báo chị Nhi nguyên nhân tăng để nhân rộng"
+"Báo quản lý nguyên nhân tăng để nhân rộng"
 ],
 "close": "Tự đóng sau 7 ngày hoặc evidence: hành động đã thực hiện",
 "trigger": "units 3d >= 2 × (planUnits[tháng] / daysInMonth × 3) AND thực nhận/kệ 3d >= 189.051₫"

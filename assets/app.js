@@ -17,9 +17,8 @@ const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
 const hexd = h => new Uint8Array(h.match(/../g).map(x => parseInt(x, 16)));
 const OWN = E.OWNERS, SEVN = { P0: 'Critical', P1: 'High', P2: 'Medium', P3: 'Low' };
 const isDemo = /[?&]demo=1/.test(location.search);
-// how staff address the manager (anh / chị), set in Cài đặt; applied to every template and playbook text
-const PRON = () => store.get('mp-pron') || 'anh';
-const vx = t => String(t ?? '').replace(/[cC]hị Nhi/g, m => m[0] === 'C' ? PRON()[0].toUpperCase() + PRON().slice(1) : PRON()).replace(/(^|[^\p{L}])([cC])hị(?=[^\p{L}]|$)/gu, (m, p, c) => p + (c === 'C' ? PRON()[0].toUpperCase() + PRON().slice(1) : PRON()));
+// professional, pronoun-free wording: the manager is "quản lý", no anh/chị/em in any template or playbook text
+const vx = t => String(t ?? '').replace(/[cC]hị Nhi/g, m => m[0] === 'C' ? 'Quản lý' : 'quản lý').replace(/(^|[^\p{L}])([cC])hị(?=[^\p{L}]|$)/gu, (m, p, c) => p + (c === 'C' ? 'Quản lý' : 'quản lý')).replace(/(^|[^\p{L}])[eE]m(?=[^\p{L}]|$) ?/gu, '$1');
 
 /* ---------------- storage & loading (GitHub repo, encrypted) ---------------- */
 const ST = window.CCS;
@@ -174,10 +173,32 @@ const TABS_STAFF = ch => ['brief', 'work', 'chat', ...(ch === 'global' ? ['globa
 const TAB_LABEL_STAFF = { radar: 'Issue của tôi', tasks: 'Việc từ issue', team: 'Điểm của tôi' };
 function renderTabs() {
   const T = (isMgr() ? TABS_MGR : TABS_STAFF(S.me.channel)).map(k => isMgr() || !TAB_LABEL_STAFF[k] ? TI[k] : [k, TAB_LABEL_STAFF[k], TI[k][2]]), badge = { radar: S.issues.filter(i => i.effSev === 'P0' && i.kind === 'issue').length, tasks: S.led.tasks.filter(t => isMgr() ? t.state === 'review' || t.overdue : t.state !== 'closed').length, chat: (S.badge || {}).chat || 0, work: (S.badge || {}).work || 0 };
+  renderBnav(T, badge);
   $('#tabs').innerHTML = T.map(([k, l, d]) => `<button role="tab" data-tab="${k}" aria-selected="${S.tab === k}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><span class="l">${l}</span>${badge[k] ? `<b class="sev P0" style="min-width:20px;height:18px;font-size:10.5px">${badge[k]}</b>` : ''}</button>`).join('');
 }
+/* mobile bottom navigation: 4 main destinations + "Thêm" sheet for the rest */
+function renderBnav(T, badge) {
+  const chTabs = T.filter(t => ['global', 'local', 'nikon'].includes(t[0])), main = ['brief', 'work', 'chat'].map(k => T.find(t => t[0] === k)).filter(Boolean);
+  const inCh = chTabs.some(t => t[0] === S.tab), rest = T.filter(t => !main.includes(t) && !chTabs.includes(t)), inRest = rest.some(t => t[0] === S.tab);
+  const ico = d => `<svg viewBox="0 0 24 24"><path d="${d}"/></svg>`, b = n => n ? `<i class="bn-b">${n > 99 ? '99+' : n}</i>` : '';
+  const chT = chTabs.find(t => t[0] === S.tab) || chTabs[0];
+  $('#bnav').innerHTML = main.map(([k, l, d]) => `<button data-tab="${k}" aria-selected="${S.tab === k}">${ico(d)}<span>${l}</span>${b(badge[k])}</button>`).join('')
+    + (chTabs.length ? `<button data-bsheet="ch" aria-selected="${inCh}">${ico(chT[2])}<span>${inCh ? chT[1] : 'Kênh'}</span></button>` : '')
+    + `<button data-bsheet="more" aria-selected="${inRest}">${ico('M5 12h.01M12 12h.01M19 12h.01')}<span>Thêm</span>${b(rest.reduce((a, t) => a + (badge[t[0]] || 0), 0))}</button>`;
+  $('#bnav').onclick = e => {
+    const tb = e.target.closest('[data-tab]'); if (tb) { S.tab = tb.dataset.tab; render(); scrollTo({ top: 0 }); return; }
+    const sh = e.target.closest('[data-bsheet]'); if (!sh) return;
+    const list = sh.dataset.bsheet === 'ch' ? chTabs : rest;
+    modal(`<div class="bsheet"><h3>${sh.dataset.bsheet === 'ch' ? 'Kênh bán' : 'Thêm'}</h3><div class="bs-grid">${list.map(([k, l, d]) => `<button data-go="${k}" class="${S.tab === k ? 'on' : ''}">${ico(d)}<span>${l}</span>${b(badge[k])}</button>`).join('')}</div>${sh.dataset.bsheet === 'more' ? `<div class="bs-row"><button class="btn ghost" id="bsSet">⚙ Cài đặt</button><button class="btn ghost" id="bsTheme">◐ Sáng / tối</button><button class="btn ghost" id="bsOut">↩ Đăng xuất</button></div>` : ''}</div>`, m => {
+      m.querySelector('.box').classList.add('sheet');
+      m.querySelectorAll('[data-go]').forEach(x => x.onclick = () => { closeModal(); S.tab = x.dataset.go; render(); scrollTo({ top: 0 }); });
+      const q = id => m.querySelector(id); if (q('#bsSet')) { q('#bsSet').onclick = () => { closeModal(); settings(); }; q('#bsTheme').onclick = () => { closeModal(); $('#themeBtn').click(); }; q('#bsOut').onclick = () => { closeModal(); $('#logoutBtn').click(); }; }
+    });
+  };
+}
 function render() {
-  renderTabs();
+  renderTabs(); dispatchEvent(new Event('cc-tab'));
+  document.body.dataset.tab = S.tab; if (S.tab !== 'chat') document.body.classList.remove('cx-full');
   if (S.tab === 'work' || S.tab === 'chat') { window.CCSheet.unmount(); $('#view').innerHTML = `<section id="cxRoot" class="cx-root ${S.tab}"></section>`; $('#view').onclick = null; window.CCX.mount($('#cxRoot'), S.tab); return; }
   window.CCX.unmount();
   if (S.tab === 'sheet') { $('#view').innerHTML = '<section id="sheetRoot" class="sheet-root"></section>'; window.CCSheet.mount($('#sheetRoot'), S.sheetHost); $('#view').onclick = null; return; }
@@ -195,7 +216,7 @@ function issueRow(i, compact) {
   const tags = [i.kind === 'opportunity' ? '<span class="tag good">Cơ hội</span>' : '', i.missReport ? '<span class="tag bad">Miss báo cáo</span>' : '', i.slaBreached ? `<span class="tag bad">Quá SLA ${i.sla * 24}h${i.effSev !== i.sev ? ' → nâng ' + i.sev + '→' + i.effSev : ''}</span>` : '', t ? `<span class="tag">${esc(t.id)} · ${t.state === 'review' ? 'chờ duyệt' : 'đã giao'}</span>` : '', i.ackAt ? `<span class="tag good">NV đã nắm ${dt(i.ackAt)}</span>` : ''].join('');
   const steps = (i.steps || []).map(s => `<li>${esc(s)}</li>`).join('');
   const acts = mgr ? `${t ? `<button class="btn ghost" data-goto="tasks">Xem việc</button>` : `<button class="btn pri" data-assign="${esc(i.key)}">Giao việc</button>`}${!t ? `<button class="btn ghost" data-dismiss="${esc(i.key)}" title="Bỏ qua (ghi log lý do)">Bỏ qua</button>` : ''}`
-    : `${!i.ackAt && !t ? `<button class="btn pri" data-ack="${esc(i.key)}">Em đã nắm</button>` : ''}`;
+    : `${!i.ackAt && !t ? `<button class="btn pri" data-ack="${esc(i.key)}">Đã nhận</button>` : ''}`;
   return `<article class="issue${compact ? ' compact' : ''}"><div>${sevTag(i.effSev)}</div><div><h4>${esc(i.title)}</h4>
     <div class="meta"><span>${i.channel === 'global' ? 'Global' : i.channel === 'local' ? 'Local' : 'Hệ thống'}</span>·<span>${esc(ownerName(i.owner))}</span>${ageTxt(i) ? `·<span>tồn ${ageTxt(i)}</span>` : ''}${i.sla ? `·<span>SLA ${i.sla * 24}h</span>` : ''}${i.impactVnd ? `·<span>ảnh hưởng ~${vndS(i.impactVnd)}₫</span>` : ''}${tags}</div>
     ${i.detail && !compact ? `<div class="det">${esc(i.detail)}</div>` : ''}</div><div class="acts">${acts}</div>
@@ -212,11 +233,11 @@ function viewBrief() {
   if (L) kp.push(kpi('Local · Kệ bán tháng này', `${L.mtd.units}<small>/ ${L.tgtUnits || '–'}</small>`, `tiến độ ${L.paceUnits ? pct(L.mtd.units / L.paceUnits) : '–'} · NMV ${vndS(L.mtd.nmv)}₫${L.tgtUnits ? bar(L.mtd.units / L.tgtUnits) : ''}`, 'Đơn không hủy. Target theo kế hoạch 2.700 kệ'));
   if (L) kp.push(kpi('Local · Thực thu / kệ', vnd(L.l30.unitNet), `target ${vnd(L.plan.netPerUnit)} · giá sàn ${vnd(L.plan.floorPrice)}`, '(Giá bán − voucher shop − phí sàn) ÷ số kệ, 30 ngày'));
   const nP0 = iss.filter(i => i.effSev === 'P0' && i.kind === 'issue').length, nP1 = iss.filter(i => i.effSev === 'P1' && i.kind === 'issue').length, od = S.led.tasks.filter(t => t.overdue).length, rv = S.led.tasks.filter(t => t.state === 'review').length;
-  return `<div class="page-head"><div><h1>${hello}, ${esc(isMgr() ? (S.me.name || '').split(' ').pop() : S.me.name.split(' ').pop())}</h1><p>${new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
+  return `<div class="page-head"><div><h1>${hello}, ${esc(((CFG.TEAM || []).find(p => p.id === S.me.id) || {}).short || (S.me.name || '').split(' ').pop())}</h1><p>${new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
     <div class="fresh">${S.me.lg ? freshPill('Lignarc', S.G && S.G.updatedAt, S.src.gErr) : ''}${S.me.lf ? freshPill('Kệ 3 tầng', S.L && S.L.updatedAt, S.src.lErr) : ''}${S.me.nk || (isDemo && S.me.lf) ? freshPill('Nikon', S.N && S.N.updatedAt, S.src.nErr) : ''}${S.apiErr ? `<span class="pill warn"><i></i>Sổ giao việc: ${esc(S.apiErr)}</span>` : ''}</div></div>
   <section class="card glass"><h3>Tóm tắt sáng nay</h3><div class="brief-lines">${briefLines().map(x => `<div>${x}</div>`).join('')}</div></section>
   <div class="grid g-kpi">${kp.join('')}</div>
-  <div class="grid g-kpi">${kpi('Issue Critical (P0)', `<span style="color:var(--crit-ink)">${nP0}</span>`, `${nP1} High (P1)`)}${kpi('Việc quá hạn', String(od), `${S.led.tasks.filter(t => t.state !== 'closed').length} việc đang mở`)}${kpi('Chờ ' + PRON() + ' duyệt', String(rv), 'Nhân viên báo xong, cần đối chiếu')}${kpi('Miss báo cáo', `<span style="color:${miss ? 'var(--crit-ink)' : 'inherit'}">${miss}</span>`, 'Issue P0/P1 quá 24h nhân viên chưa báo')}</div>
+  <div class="grid g-kpi">${kpi('Issue Critical (P0)', `<span style="color:var(--crit-ink)">${nP0}</span>`, `${nP1} High (P1)`)}${kpi('Việc quá hạn', String(od), `${S.led.tasks.filter(t => t.state !== 'closed').length} việc đang mở`)}${kpi('Chờ duyệt', String(rv), 'Nhân viên báo xong, cần đối chiếu')}${kpi('Miss báo cáo', `<span style="color:${miss ? 'var(--crit-ink)' : 'inherit'}">${miss}</span>`, 'Issue P0/P1 quá 24h nhân viên chưa báo')}</div>
   <div class="grid g-21">
     ${card('Cần quyết ngay', 'Issue chưa giao, xếp theo mức độ × tiền bị ảnh hưởng × số ngày tồn', top.length ? top.map(i => issueRow(i, true)).join('') : '<div class="empty2">Không có issue mở 🎉</div>', `<button class="btn ghost" data-goto="radar">Xem tất cả ${iss.length}</button>`)}
     <div class="grid" style="align-content:start">
@@ -460,7 +481,7 @@ function bindView() {
     if (d.unas !== undefined) { S.f.unassigned = !S.f.unassigned; render(); return; }
     if (d.assign) return assignModal(issueByKey(d.assign));
     if (d.dismiss) { const i = issueByKey(d.dismiss); return modal(`<h3>Bỏ qua issue</h3><p class="sub">${esc(i.title)}</p><label>Lý do (được ghi log)<input id="mR"></label><div class="foot"><button class="btn ghost" data-close>Huỷ</button><button class="btn pri" id="mGo">Bỏ qua</button></div>`, m => { m.querySelector('#mGo').onclick = async () => { const r = m.querySelector('#mR').value.trim(); if (!r) return toast('Cần lý do'); closeModal(); const id = 'T-' + Date.now().toString(36).slice(-5).toUpperCase(); await addEvent('assign', id, { taskId: id, issueKey: i.key, ruleId: i.rule, title: i.title, sev: i.sev, owner: i.owner === 'manager' ? 'trang' : i.owner, channel: i.channel, due: E.todayVN(), closeWhen: 'evidence' }, i.channel); await addEvent('dismiss', id, { reason: r }, i.channel); }; }); }
-    if (d.ack) return addEvent('ack', d.ack, { note: 'Nhân viên chủ động báo đã nắm issue' }).then(ok => ok && toast('Đã ghi nhận: em đã nắm issue'));
+    if (d.ack) return addEvent('ack', d.ack, { note: 'Nhân viên chủ động báo đã nắm issue' }).then(ok => ok && toast('Đã nhận issue'));
     const t = taskById(d.approve || d.remind || d.warn || d.deadline || d.msg || d.tack || d.progress || d.done || d.reopen || d.praise || '');
     if (d.approve) return addEvent('approve', t.id, { how: t.dataResolved ? 'data' : 'manager' }, t.channel);
     if (d.remind) return msgModal('Nhắc nhở ' + (OWN[t.owner] || {}).short, fill(PB.messages.remind, msgVars(t)), txt => addEvent('remind', t.id, { note: 'Đã gửi nhắc nhở' }, t.channel));
@@ -507,10 +528,13 @@ async function dmKey(other) {
 function collabHost() {
   return { me: S.me, team: CFG.TEAM.map(p => p.id === S.me.id ? { ...p, name: S.me.name || p.name } : p), keys: S.me.keys || {}, ST, isDemo, dmKey,
     now: () => isDemo ? new Date().toISOString() : ST.now(), toast, modal, closeModal, canWrite: () => isDemo || ST.hasToken(),
-    goto: t => { S.tab = t; render(); scrollTo({ top: 0 }); }, tab: () => S.tab, onBadge: b => { S.badge = b; renderTabs(); } };
+    goto: t => { S.tab = t; render(); scrollTo({ top: 0 }); }, tab: () => S.tab, onBadge: b => { S.badge = b; renderTabs(); }, onAvatars: () => { showWho(); if (['team', 'work', 'chat'].includes(S.tab)) render(); } };
 }
 
 /* ---------------- shell, accounts & settings ---------------- */
+function squareImage(file, size) {
+  return new Promise((res, rej) => { const img = new Image(), u = URL.createObjectURL(file); img.onload = () => { const c = document.createElement('canvas'); c.width = c.height = size; const k = Math.min(img.width, img.height); c.getContext('2d').drawImage(img, (img.width - k) / 2, (img.height - k) / 2, k, k, 0, 0, size, size); URL.revokeObjectURL(u); res(c.toDataURL('image/jpeg', .84)); }; img.onerror = rej; img.src = u; });
+}
 function remember(me) { const j = JSON.stringify(me); if (store.get('mp-me')) store.set('mp-me', j); else { try { sessionStorage.setItem('mp-me', j); } catch (e) {} } }
 async function changePassword(oldp, newp) {
   if (newp.length < 8) throw new Error('Mật khẩu mới cần ít nhất 8 ký tự');
@@ -573,8 +597,9 @@ function pwModal(forced) {
 function settings() {
   const mgr = isMgr() && !isDemo, team = (S.me.team || []);
   modal(`<h3>Cài đặt</h3><p class="sub">${esc(S.me.name)} · @${esc(S.me.username || S.me.id)} · ${S.me.role === 'manager' ? 'Quản lý (toàn quyền)' : 'Nhân viên · ' + (S.me.channel === 'global' ? 'Global' : 'Local')}</p>
+    <div class="set-sec"><b>Ảnh đại diện</b><div class="set-av"><span id="sAvPrev">${window.CCX ? CCX.avatar(S.me.id, 64) : ''}</span><label class="btn">Chọn ảnh<input type="file" id="sAvF" accept="image/*" hidden></label><button class="btn ghost" id="sAvDel">Xoá ảnh</button><span id="sAvOut" class="sub"></span></div></div>
     <div class="set-sec"><b>Tài khoản</b><button class="btn" id="sPw">Đổi mật khẩu</button></div>
-    ${isMgr() ? `<div class="set-sec"><b>Hiển thị</b><label>Tên hiển thị<input id="sName" value="${esc(S.me.name)}"></label><label>Nhân viên xưng hô với quản lý<select id="sPron"><option value="anh">anh</option><option value="chị">chị</option></select></label><label>Tỷ giá USD → VND<input id="sFx" inputmode="numeric" value="${S.fx}"></label></div>` : ''}
+    ${isMgr() ? `<div class="set-sec"><b>Hiển thị</b><label>Tên hiển thị<input id="sName" value="${esc(S.me.name)}"></label><label>Tỷ giá USD → VND<input id="sFx" inputmode="numeric" value="${S.fx}"></label></div>` : ''}
     ${mgr ? `<div class="set-sec"><b>GitHub token ${ST.hasToken() ? '<span class="tag good">đang hoạt động</span>' : '<span class="tag bad">chưa có</span>'}</b><p class="sub">Fine-grained token chỉ cho repo ${esc(CFG.REPO)}, quyền Contents: Read and write. Được mã hoá; nhân viên dùng chung để lưu việc & Sheet.</p><label>Token<input id="sTok" placeholder="github_pat_…" autocomplete="off"></label><button class="btn" id="sTokGo">Lưu token</button> <span id="sTokOut" class="sub"></span></div>
     <div class="set-sec"><b>Kết nối dữ liệu nguồn ${S.me.lg ? '<span class="tag good">Lignarc ✓</span>' : '<span class="tag bad">Lignarc ✗</span>'} ${S.me.lf ? '<span class="tag good">Kệ 3 tầng ✓</span>' : '<span class="tag bad">Kệ 3 tầng ✗</span>'} ${S.me.nk ? '<span class="tag good">Nikon ✓</span>' : '<span class="tag bad">Nikon ✗</span>'}</b><p class="sub">Đăng nhập 2 dash gốc một lần để Command Center đọc được dữ liệu. Chỉ khoá giải mã được lưu (mã hoá), không lưu mật khẩu.</p>
       <div class="set-2"><label>Lignarc · Username<input id="cLgU" value="khoimr11" autocomplete="off"></label><label>Lignarc · Password<input id="cLgP" type="password" autocomplete="off"></label><label>Dash Local (Kệ 3 tầng + Nikon) · Email<input id="cLfU" value="salesb2c.lf@vhg.vn" autocomplete="off"></label><label>Dash Local · Password<input id="cLfP" type="password" autocomplete="off"></label></div>
@@ -583,15 +608,16 @@ function settings() {
     ${isDemo ? `<div class="set-sec"><b>Xem như (demo)</b><select id="mAs"><option value="manager">Quản lý</option><option value="trang">Thuỳ Trang (Global)</option><option value="phu">Đình Phú (Local)</option></select></div>` : ''}
     <div class="foot"><button class="btn ghost" data-close>Đóng</button><button class="btn pri" id="mGo">Lưu</button></div>`, m => {
     const q = s => m.querySelector(s);
-    if (q('#sPron')) q('#sPron').value = PRON();
     if (isDemo) q('#mAs').value = S.me.role === 'manager' ? 'manager' : S.me.id;
+    const avOut = q('#sAvOut'), avSet = async url => { avOut.textContent = 'Đang lưu…'; try { await CCX.setAvatar(url); q('#sAvPrev').innerHTML = CCX.avatar(S.me.id, 64); avOut.textContent = url ? '✓ Đã cập nhật' : '✓ Đã xoá'; showWho(); } catch (e) { avOut.textContent = e.message || String(e); } };
+    q('#sAvF').onchange = async e => { const f = e.target.files[0]; if (!f) return; try { avSet(await squareImage(f, 192)); } catch (er) { avOut.textContent = 'Không đọc được ảnh'; } };
+    q('#sAvDel').onclick = () => avSet(null);
     q('#sPw').onclick = () => isDemo ? toast('Bản demo không đổi mật khẩu') : pwModal(false);
     if (q('#sTokGo')) q('#sTokGo').onclick = async () => { const t = q('#sTok').value.trim(), o = q('#sTokOut'); if (!t) return; o.textContent = 'Đang kiểm tra…'; try { await saveToken(t); o.textContent = '✓ Đã lưu token'; S.sheetHost = sheetHost(); await loadEvents(); await compute(); render(); } catch (e) { o.textContent = e.message; } };
     if (q('#cGo')) q('#cGo').onclick = async () => { const o = q('#cOut'); o.textContent = 'Đang giải mã… (mất vài giây)'; try { o.textContent = await connectSources(q('#cLgU').value, q('#cLgP').value, q('#cLfU').value, q('#cLfP').value); S.src = await loadSources(S.me); await compute(); render(); } catch (e) { o.textContent = e.message; } };
     m.querySelectorAll('[data-reset]').forEach(b => b.onclick = () => { const t = team.find(x => x.id === b.dataset.reset); const p = prompt('Mật khẩu tạm mới cho ' + t.name + ' (nhân viên sẽ phải đổi khi đăng nhập):'); if (!p) return; resetStaffPassword(t, p).then(() => toast('Đã đặt lại mật khẩu cho ' + t.name)).catch(e => toast(e.message)); });
     q('#mGo').onclick = async () => {
       if (q('#sFx')) { const v = +String(q('#sFx').value).replace(/\D/g, ''); if (v > 1000) { S.fx = v; store.set('cc-fx', v); } }
-      if (q('#sPron')) store.set('mp-pron', q('#sPron').value);
       if (q('#sName') && q('#sName').value.trim()) { S.me.name = q('#sName').value.trim(); store.set('mp-name-' + S.me.id, S.me.name); remember(S.me); }
       if (isDemo && q('#mAs').value !== (S.me.role === 'manager' ? 'manager' : S.me.id)) { closeModal(); S.tab = 'brief'; return start({ ...DEMO_USERS[q('#mAs').value] }); }
       closeModal(); await compute(); render(); showWho();
@@ -606,7 +632,7 @@ function sheetHost() {
     read: async k => isDemo ? dread(k) : ST.readEnc(`data/sheets-${k}.enc.json`, K[k], { sheets: [] }),
     write: async (k, mutate, msg) => { if (isDemo) { const d = mutate(dread(k)); store.set(dkey(k), JSON.stringify(d)); return d; } return ST.updateEnc(`data/sheets-${k}.enc.json`, K[k], mutate, msg, { sheets: [] }); } };
 }
-function showWho() { $('#who').textContent = (S.me.role === 'manager' ? 'Quản lý · ' : 'NV · ') + S.me.name; $('#sub').textContent = S.me.role === 'manager' ? 'Command Center · Quản lý' : (S.me.channel === 'global' ? 'Command Center · Global' : 'Command Center · Local · Nikon'); }
+function showWho() { $('#who').innerHTML = (window.CCX ? CCX.avatar(S.me.id, 22) : '') + '<span>' + esc((S.me.role === 'manager' ? 'Quản lý · ' : 'Nhân viên · ') + S.me.name) + '</span>'; $('#sub').textContent = S.me.role === 'manager' ? 'Command Center · Quản lý' : (S.me.channel === 'global' ? 'Command Center · Global' : 'Command Center · Local · Nikon'); }
 async function start(me) {
   S.me = me; const nm = store.get('mp-name-' + me.id); if (nm) S.me.name = nm;
   $('#login').hidden = true; $('#app').hidden = false; showWho();
@@ -618,6 +644,8 @@ async function start(me) {
   if (!isDemo) publishPub(me).catch(() => {});
   window.CCX.init(collabHost()).catch(e => console.warn('collab', e));
 }
+const setVvh = () => document.documentElement.style.setProperty('--vvh', (window.visualViewport ? visualViewport.height : innerHeight) + 'px');
+setVvh(); if (window.visualViewport) { visualViewport.addEventListener('resize', () => { setVvh(); if (document.body.classList.contains('cx-full')) scrollTo(0, 0); }); visualViewport.addEventListener('scroll', setVvh); } addEventListener('resize', setVvh);
 const th0 = store.get('lg-theme'); if (th0) document.documentElement.dataset.theme = th0;
 $('#themeBtn').onclick = () => { const r = document.documentElement, cur = r.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'), n = cur === 'dark' ? 'light' : 'dark'; r.dataset.theme = n; store.set('lg-theme', n); };
 $('#logoutBtn').onclick = () => { if (window.CCSheet.hasUnsaved() && !confirm('Sheet đang lưu dở, vẫn đăng xuất?')) return; store.del('mp-me'); location.href = location.pathname; };
