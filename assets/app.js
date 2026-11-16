@@ -186,10 +186,10 @@ function renderBnav(T, badge) {
     + (chTabs.length ? `<button data-bsheet="ch" aria-selected="${inCh}">${ico(chT[2])}<span>${inCh ? chT[1] : 'Kênh'}</span></button>` : '')
     + `<button data-bsheet="more" aria-selected="${inRest}">${ico('M5 12h.01M12 12h.01M19 12h.01')}<span>Thêm</span>${b(rest.reduce((a, t) => a + (badge[t[0]] || 0), 0))}</button>`;
   $('#bnav').onclick = e => {
-    const tb = e.target.closest('[data-tab]'); if (tb) { S.tab = tb.dataset.tab; render(); scrollTo({ top: 0 }); return; }
+    const tb = e.target.closest('button[data-tab]'); if (tb) { S.tab = tb.dataset.tab; render(); scrollTo({ top: 0 }); return; }
     const sh = e.target.closest('[data-bsheet]'); if (!sh) return;
     const list = sh.dataset.bsheet === 'ch' ? chTabs : rest;
-    modal(`<div class="bsheet"><h3>${sh.dataset.bsheet === 'ch' ? 'Kênh bán' : 'Thêm'}</h3><div class="bs-grid">${list.map(([k, l, d]) => `<button data-go="${k}" class="${S.tab === k ? 'on' : ''}">${ico(d)}<span>${l}</span>${b(badge[k])}</button>`).join('')}</div>${sh.dataset.bsheet === 'more' ? `<div class="bs-row"><button class="btn ghost" id="bsSet">⚙ Cài đặt</button><button class="btn ghost" id="bsTheme">◐ Sáng / tối</button><button class="btn ghost" id="bsOut">↩ Đăng xuất</button></div>` : ''}</div>`, m => {
+    modal(`<div class="bsheet"><h3>${sh.dataset.bsheet === 'ch' ? 'Kênh bán' : 'Thêm'}</h3><div class="bs-grid">${list.map(([k, l, d]) => `<button data-go="${k}" class="${S.tab === k ? 'on' : ''}">${ico(d)}<span>${l}</span>${b(badge[k])}</button>`).join('')}</div>${sh.dataset.bsheet === 'more' ? `<div class="bs-row"><button class="btn ghost" id="bsSet">⚙ Cài đặt</button><button class="btn ghost" id="bsTheme">☾ Sáng / tối</button><button class="btn ghost" id="bsOut">↩ Đăng xuất</button></div>` : ''}</div>`, m => {
       m.querySelector('.box').classList.add('sheet');
       m.querySelectorAll('[data-go]').forEach(x => x.onclick = () => { closeModal(); S.tab = x.dataset.go; render(); scrollTo({ top: 0 }); });
       const q = id => m.querySelector(id); if (q('#bsSet')) { q('#bsSet').onclick = () => { closeModal(); settings(); }; q('#bsTheme').onclick = () => { closeModal(); $('#themeBtn').click(); }; q('#bsOut').onclick = () => { closeModal(); $('#logoutBtn').click(); }; }
@@ -198,7 +198,7 @@ function renderBnav(T, badge) {
 }
 function render() {
   renderTabs(); dispatchEvent(new Event('cc-tab'));
-  document.body.dataset.tab = S.tab; if (S.tab !== 'chat') document.body.classList.remove('cx-full');
+  document.body.dataset.cur = S.tab; if (S.tab !== 'chat') document.body.classList.remove('cx-full');
   if (S.tab === 'work' || S.tab === 'chat') { window.CCSheet.unmount(); $('#view').innerHTML = `<section id="cxRoot" class="cx-root ${S.tab}"></section>`; $('#view').onclick = null; window.CCX.mount($('#cxRoot'), S.tab); return; }
   window.CCX.unmount();
   if (S.tab === 'sheet') { $('#view').innerHTML = '<section id="sheetRoot" class="sheet-root"></section>'; window.CCSheet.mount($('#sheetRoot'), S.sheetHost); $('#view').onclick = null; return; }
@@ -525,8 +525,30 @@ async function dmKey(other) {
   const theirs = await crypto.subtle.importKey('jwk', PUBS[other], { name: 'ECDH', namedCurve: 'P-256' }, false, []);
   return (DMK[other] = ST.b64e(await crypto.subtle.deriveBits({ name: 'ECDH', public: theirs }, mine, 256)));
 }
+async function dmState(other) {
+  if (isDemo) return { me: true, them: true };
+  if (!PUBS || !PUBS[other]) { try { const f = await ST.getFile('data/pubkeys.json'); PUBS = f ? JSON.parse(f.text) : {}; } catch (e) {} }
+  return { me: !!S.me.dh, them: !!(PUBS && PUBS[other]) };
+}
+// turn on private chat from inside the app (no logout): verify the password, reuse the key already in the vault or create one
+async function enableDM(pass) {
+  if (!ST.hasToken()) throw new Error('Chưa có GitHub token — quản lý cần nhập token trong Cài đặt');
+  const f = await ST.getFile('data/vault.json'); const b = await ST.openSlot(JSON.parse(f.text), S.me.username, pass).catch(() => { throw new Error('Mật khẩu không đúng'); });
+  if (b.dh) S.me.dh = b.dh; else await ensureDH(S.me, pass);
+  await publishPub(S.me); remember(S.me); for (const k in DMK) delete DMK[k];
+}
+function dmModal(after) {
+  modal(`<h3>🔒 Bật chat riêng</h3><p class="sub">Nhập mật khẩu đăng nhập một lần để tạo khoá mã hoá đầu-cuối cho chat riêng trên thiết bị này. Không cần đăng xuất.</p>
+    <form id="dmF"><label>Mật khẩu<input id="dmP" type="password" autocomplete="current-password" required></label><p id="dmE" class="sub" style="color:var(--crit-ink)"></p>
+    <div class="foot"><button type="button" class="btn ghost" data-close>Để sau</button><button class="btn pri" id="dmGo">Bật</button></div></form>`, m => {
+    const q = x => m.querySelector(x); setTimeout(() => q('#dmP').focus(), 50);
+    q('#dmF').onsubmit = async e => { e.preventDefault(); const g = q('#dmGo'); g.disabled = true; g.textContent = 'Đang bật…'; q('#dmE').textContent = '';
+      try { await enableDM(q('#dmP').value); closeModal(); toast('Đã bật chat riêng'); await window.CCX.refresh(); if (after) after(); }
+      catch (x) { q('#dmE').textContent = x.message || String(x); g.disabled = false; g.textContent = 'Bật'; } };
+  });
+}
 function collabHost() {
-  return { me: S.me, team: CFG.TEAM.map(p => p.id === S.me.id ? { ...p, name: S.me.name || p.name } : p), keys: S.me.keys || {}, ST, isDemo, dmKey,
+  return { me: S.me, team: CFG.TEAM.map(p => p.id === S.me.id ? { ...p, name: S.me.name || p.name } : p), keys: S.me.keys || {}, ST, isDemo, dmKey, dmState, enableDM: dmModal,
     now: () => isDemo ? new Date().toISOString() : ST.now(), toast, modal, closeModal, canWrite: () => isDemo || ST.hasToken(),
     goto: t => { S.tab = t; render(); scrollTo({ top: 0 }); }, tab: () => S.tab, onBadge: b => { S.badge = b; renderTabs(); }, onAvatars: () => { showWho(); if (['team', 'work', 'chat'].includes(S.tab)) render(); } };
 }
@@ -643,6 +665,7 @@ async function start(me) {
   if (me.mustChange && !isDemo) pwModal(true);
   if (!isDemo) publishPub(me).catch(() => {});
   window.CCX.init(collabHost()).catch(e => console.warn('collab', e));
+  if (!isDemo && !S.me.dh && ST.hasToken()) { let asked = null; try { asked = sessionStorage.getItem('dh-ask'); } catch (e) {} if (!asked) { try { sessionStorage.setItem('dh-ask', '1'); } catch (e) {} let n = 0; const t = setInterval(() => { if (S.me.dh || ++n > 120) return clearInterval(t); if (n > 2 && !document.querySelector('.modal')) { clearInterval(t); dmModal(); } }, 1000); } }
 }
 const setVvh = () => document.documentElement.style.setProperty('--vvh', (window.visualViewport ? visualViewport.height : innerHeight) + 'px');
 setVvh(); if (window.visualViewport) { visualViewport.addEventListener('resize', () => { setVvh(); if (document.body.classList.contains('cx-full')) scrollTo(0, 0); }); visualViewport.addEventListener('scroll', setVvh); } addEventListener('resize', setVvh);
@@ -651,7 +674,7 @@ $('#themeBtn').onclick = () => { const r = document.documentElement, cur = r.dat
 $('#logoutBtn').onclick = () => { if (window.CCSheet.hasUnsaved() && !confirm('Sheet đang lưu dở, vẫn đăng xuất?')) return; store.del('mp-me'); location.href = location.pathname; };
 $('#settingsBtn').onclick = settings;
 $('#refreshBtn').onclick = () => start(S.me);
-$('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) { S.tab = b.dataset.tab; render(); scrollTo({ top: 0 }); } };
+$('#tabs').onclick = e => { const b = e.target.closest('button[data-tab]'); if (b) { S.tab = b.dataset.tab; render(); scrollTo({ top: 0 }); } };
 addEventListener('beforeunload', e => { if (window.CCSheet.hasUnsaved()) { e.preventDefault(); e.returnValue = ''; } });
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault(); const btn = $('#loginBtn'); btn.disabled = true; btn.textContent = 'Đang giải mã…'; $('#loginErr').textContent = '';

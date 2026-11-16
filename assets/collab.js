@@ -51,7 +51,7 @@ async function readThread(kind, other) {
 /** mutate one month file of a thread on the freshest copy (send, react) */
 async function threadOp(kind, other, m, label, fn) {
   if (H.isDemo) { const k = demoKey(kind, other, m), d = JSON.parse(localStorage.getItem(k) || '{"msgs":[]}'); fn(d); localStorage.setItem(k, JSON.stringify(d)); return; }
-  const key = kind === 'team' ? H.keys.S : await H.dmKey(other); if (!key) throw new Error('Người nhận chưa bật chat riêng (cần đăng xuất & đăng nhập lại bản mới một lần)');
+  const key = kind === 'team' ? H.keys.S : await H.dmKey(other); if (!key) throw new Error('Người nhận chưa bật chat riêng');
   await H.ST.updateEnc(kind === 'team' ? teamPath(m) : dmPath(other, m), key, d => { d.msgs = d.msgs || []; fn(d); if (d.msgs.length > 3000) d.msgs = d.msgs.slice(-3000); return d; }, label, { msgs: [] });
 }
 async function sendMsg(kind, other, body) {
@@ -174,7 +174,7 @@ async function refresh(all) {
     for (const p of H.team.filter(p => p.id !== H.me.id)) {
       const old = (X.dms[p.id] || {}).msgs || [];
       const msgs = await readThread('dm', p.id).catch(() => null);
-      X.dms[p.id] = { msgs: msgs || [], locked: msgs == null };
+      X.dms[p.id] = { msgs: msgs || [], locked: msgs == null, why: msgs == null ? await H.dmState(p.id).catch(() => null) : null };
       if (msgs) { diffNotify(old, msgs, 'dm-' + p.id, 'nhắn riêng'); reactNotify(old, msgs, 'nhắn riêng'); }
     }
     const w = await readWork(); workNotify(oldWork, w); X.work = w;
@@ -216,6 +216,11 @@ function threadsList() {
   return [{ id: 'team', label: 'Cả team B2C', sub: `${H.team.length} thành viên`, msgs: X.team.msgs, kind: 'team' },
     ...others.map(p => ({ id: 'dm-' + p.id, label: p.name, short: p.short, sub: p.role === 'manager' ? 'Quản lý' : (p.channel === 'global' ? 'Global' : 'Local · Nikon'), msgs: (X.dms[p.id] || {}).msgs || [], who: p.id, locked: (X.dms[p.id] || {}).locked, kind: 'dm' }))];
 }
+function lockedView(cur) {
+  const w = (X.dms[cur.who] || {}).why || {}, n = esc(person(cur.who).short);
+  if (!w.me) return `<div class="cx-empty">🔒<p><b>Chat riêng chưa bật trên tài khoản của bạn</b><br>Nhập mật khẩu một lần để tạo khoá mã hoá. Không cần đăng xuất.</p><button class="btn pri" data-dmon>Bật chat riêng</button></div>`;
+  return `<div class="cx-empty">${avatar(cur.who, 72)}<p><b>${n} chưa bật chat riêng</b><br>Chat sẽ tự mở khi ${n} vào Chat và bấm “Bật chat riêng” (nhập mật khẩu một lần).</p><button class="btn" data-dmnudge="${esc(cur.who)}">Nhắc ${n} trong group</button></div>`;
+}
 const teamAv = sz => `<span class="av team" style="width:${sz}px;height:${sz}px"><img src="assets/logo.svg" alt=""></span>`;
 const preview = m => m ? (m.sticker ? (m.sticker.startsWith('e:') ? m.sticker.slice(2) + ' Sticker' : '🏷 ' + (STICK_T[+m.sticker.slice(2)] || [''])[0]) : m.text) : '';
 function msgHtml(cur, m, prev, next) {
@@ -251,11 +256,11 @@ function paintChat(keep) {
   const canSend = !cur.locked && H.canWrite();
   root.innerHTML = `<div class="cx glass ${C.open ? 'is-open' : ''}">
     <aside class="cx-side"><div class="cx-sh"><b>Tin nhắn</b>${('Notification' in window) && Notification.permission === 'default' ? '<button class="btn ghost cx-bell" id="cxBell">🔔 Bật thông báo</button>' : ''}</div>
-      <div class="cx-list">${threads.map(t => { const u = unreadOf(t.id, t.msgs), last = t.msgs[t.msgs.length - 1]; return `<button class="cx-th ${u ? 'unread' : ''}" data-th="${t.id}" aria-pressed="${t.id === cur.id && C.open}">${t.who ? avatar(t.who, 50) : teamAv(50)}<span class="cx-thb"><b>${esc(t.label)}</b><small>${last ? esc((last.from === H.me.id ? 'Bạn: ' : (t.kind === 'team' ? person(last.from).short + ': ' : '')) + preview(last).slice(0, 48)) + ' · ' + ago(last.ts).replace(' trước', '') : esc(t.sub)}</small></span>${u ? `<i class="cx-u">${u}</i>` : ''}</button>`; }).join('')}</div>
+      <div class="cx-list">${threads.map(t => { const u = unreadOf(t.id, t.msgs), last = t.msgs[t.msgs.length - 1]; return `<button class="cx-th ${u ? 'unread' : ''}" data-th="${t.id}" aria-pressed="${t.id === cur.id && C.open}">${t.who ? avatar(t.who, 50) : teamAv(50)}<span class="cx-thb"><b>${esc(t.label)}</b><small>${last ? esc((last.from === H.me.id ? 'Bạn: ' : (t.kind === 'team' ? person(last.from).short + ': ' : '')) + preview(last).slice(0, 48)) + ' · ' + ago(last.ts).replace(' trước', '') : (t.locked ? '🔒 Chưa bật chat riêng' : esc(t.sub))}</small></span>${u ? `<i class="cx-u">${u}</i>` : ''}</button>`; }).join('')}</div>
     </aside>
     <section class="cx-main">
       <header class="cx-hd"><button class="cx-back" id="cxBack" aria-label="Quay lại">‹</button>${cur.who ? avatar(cur.who, 38) : teamAv(38)}<div class="cx-hdt"><b>${esc(cur.label)}</b><small>${cur.who ? '🔒 Mã hoá đầu-cuối · chỉ 2 người đọc được' : `${H.team.map(p => esc(p.short)).join(', ')}`}</small></div></header>
-      <div class="cx-msgs" id="cxMsgs">${cur.locked ? `<div class="cx-empty">🔒<p>Chưa mở được chat riêng với ${esc(person(cur.who).short)}.<br>Cả hai cần đăng xuất & đăng nhập lại bản mới một lần.</p></div>` : html || `<div class="cx-empty">${cur.who ? avatar(cur.who, 72) : teamAv(72)}<p><b>${esc(cur.label)}</b><br>Gửi lời chào hoặc một sticker 👋</p></div>`}</div>
+      <div class="cx-msgs" id="cxMsgs">${cur.locked ? lockedView(cur) : html || `<div class="cx-empty">${cur.who ? avatar(cur.who, 72) : teamAv(72)}<p><b>${esc(cur.label)}</b><br>Gửi lời chào hoặc một sticker 👋</p></div>`}</div>
       ${C.reply ? `<div class="cx-reply"><div><b>Đang trả lời ${esc(C.reply.from === H.me.id ? 'chính bạn' : person(C.reply.from).short)}</b><span>${esc(preview(C.reply).slice(0, 80))}</span></div><button id="cxRx" aria-label="Huỷ trả lời">×</button></div>` : ''}
       <div class="cx-picker" id="cxPicker" ${C.picker ? '' : 'hidden'}>${C.picker ? pickerHtml() : ''}</div>
       <form class="cx-in" id="cxForm"><button type="button" class="cx-ib" id="cxEmo" aria-label="Sticker & emoji" ${canSend ? '' : 'disabled'}>☺</button>
@@ -273,6 +278,8 @@ function paintChat(keep) {
   ta.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing && !mob) { e.preventDefault(); root.querySelector('#cxForm').requestSubmit(); } });
   root.querySelector('#cxForm').onsubmit = e => { e.preventDefault(); const t = ta.value.trim(); if (t) doSend(cur, { text: t }); else doSend(cur, { sticker: 'e:❤️' }); };
   root.querySelector('#cxEmo').onclick = () => { C.picker = C.picker ? null : 'sticker'; paintChat(true); };
+  root.querySelectorAll('[data-dmon]').forEach(b => b.onclick = () => H.enableDM(() => paintChat()));
+  root.querySelectorAll('[data-dmnudge]').forEach(b => b.onclick = async () => { const p = person(b.dataset.dmnudge); b.disabled = true; try { const msg = await sendMsg('team', null, { text: '@' + p.short + ' Bật chat riêng: Chat › chọn ' + H.me.name + ' › Bật chat riêng (nhập mật khẩu một lần).' }); X.team.msgs = [...X.team.msgs, msg]; H.toast('Đã nhắc trong group'); } catch (e) { b.disabled = false; H.toast('Lỗi gửi: ' + (e.message || e)); } });
   root.querySelectorAll('[data-th]').forEach(b => b.onclick = () => { X.thread = b.dataset.th; C.open = true; C.reply = null; C.picker = null; C.draft = ''; paintChat(); });
   root.querySelector('#cxBack').onclick = () => { C.open = false; C.picker = null; paintChat(); };
   const rx = root.querySelector('#cxRx'); if (rx) rx.onclick = () => { C.reply = null; paintChat(true); };
