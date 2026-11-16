@@ -78,15 +78,17 @@ async function unlock(me) { // team token + source data keys, each readable only
   if (K.S) { try { const t = await ST.readEnc('data/token.enc.json', K.S, {}); ST.setToken(t.t || null); } catch (e) {} }
   me.lg = null; me.lf = null;
   if (K.G) { try { me.lg = (await ST.readEnc('data/src-global.enc.json', K.G, {})).lg || null; } catch (e) {} }
-  if (K.L) { try { me.lf = (await ST.readEnc('data/src-local.enc.json', K.L, {})).lf || null; } catch (e) {} }
+  me.nk = null;
+  if (K.L) { try { const x = await ST.readEnc('data/src-local.enc.json', K.L, {}); me.lf = x.lf || null; me.nk = x.nikon || null; } catch (e) {} }
 }
 async function loadSources(me) {
   const out = { G: null, L: null, gErr: null, lErr: null, gUpd: null, lUpd: null };
-  if (isDemo) { const d = window.CCDEMO(); if (me.lg) out.G = d.G; if (me.lf) out.L = d.L; return out; }
+  if (isDemo) { const d = window.CCDEMO(); if (me.lg) out.G = d.G; if (me.lf) { out.L = d.L; out.N = d.L; } return out; }
   const K = me.keys || {};
   const job = async (url, fn) => { const r = await fetch(url + '?ts=' + Date.now(), { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); const f = await r.json(); return { data: await fn(f), upd: f.updated }; };
   await Promise.all([
     K.G ? (me.lg ? job(CFG.SRC_GLOBAL, f => openWith(b64d(me.lg), f)).then(x => { out.G = x.data; out.gUpd = x.upd; }).catch(e => { out.gErr = 'Không giải mã được dữ liệu Lignarc: ' + (e.message || e); }) : (out.gErr = 'Chưa kết nối dữ liệu Lignarc — quản lý vào Cài đặt › Kết nối dữ liệu nguồn', null)) : null,
+    K.L && me.nk ? job(CFG.SRC_NIKON, f => openWith(ST.b64d(me.nk), f)).then(x => { out.N = x.data; out.nUpd = x.upd; }).catch(e => { out.nErr = 'Không giải mã được dữ liệu Nikon: ' + (e.message || e); }) : null,
     K.L ? (me.lf ? job(CFG.SRC_LOCAL, f => openWith(hexd(me.lf), f)).then(x => { out.L = x.data; out.lUpd = x.upd; }).catch(e => { out.lErr = 'Không giải mã được dữ liệu Shopee: ' + (e.message || e); }) : (out.lErr = 'Chưa kết nối dữ liệu Shopee — quản lý vào Cài đặt › Kết nối dữ liệu nguồn', null)) : null
   ]);
   return out;
@@ -112,9 +114,10 @@ async function compute() {
   const src = S.src, me = S.me;
   try { S.G = src.G ? E.modelGlobal(src.G, { updated: src.gUpd }) : null; } catch (e) { S.G = null; src.gErr = 'Lỗi mô hình: ' + e.message; }
   try { S.L = src.L ? E.modelLocal(src.L, E.LOCAL_PLAN, { updated: src.lUpd }) : null; } catch (e) { S.L = null; src.lErr = 'Lỗi mô hình: ' + e.message; }
+  try { S.N = src.N ? E.modelLocal(src.N, E.NIKON_PLAN, { updated: src.nUpd }) : null; } catch (e) { S.N = null; src.nErr = 'Lỗi mô hình Nikon: ' + e.message; }
   const closedKeys = new Set(E.ledger(S.events, [], []).tasks.filter(t => t.state === 'closed').map(t => t.issueKey));
   const K = me.keys || {}, hasG = isDemo ? !!me.lg : !!K.G, hasL = isDemo ? !!me.lf : !!K.L;
-  let iss = E.detect(S.G, S.L, { fx: S.fx, closedKeys, globalErr: hasG ? src.gErr : null, localErr: hasL ? src.lErr : null });
+  let iss = E.detect(S.G, S.L, { fx: S.fx, closedKeys, globalErr: hasG ? src.gErr : null, localErr: hasL ? src.lErr : null, nikonErr: hasL && me.nk ? src.nErr : null }, S.N);
   if (isMgr() && !isDemo) {
     if ((S.tamper || []).length) iss.unshift({ key: 'X-LOG-TAMPER', rule: 'X-LOG-TAMPER', channel: 'system', owner: 'manager', sev: 'P0', effSev: 'P0', kind: 'issue', title: 'Nhật ký giao việc có dấu hiệu bị chỉnh sửa', detail: S.tamper.join(' · '), steps: ['Mở lịch sử commit của repo Manage-Performance (thư mục data/) để xem ai sửa', 'Đổi GitHub token nếu cần', 'Trao đổi trực tiếp với nhân viên liên quan'], closeWhen: 'Không còn bản ghi lỗi chữ ký', score: 9999 });
     if (!ST.hasToken()) iss.unshift({ key: 'X-NO-TOKEN', rule: 'X-NO-TOKEN', channel: 'system', owner: 'manager', sev: 'P1', effSev: 'P1', kind: 'issue', title: 'Chưa có GitHub token: chưa ai lưu được giao việc / Sheet', detail: 'Vào Cài đặt › GitHub token, dán fine-grained token của repo Manage-Performance (quyền Contents: Read and write).', steps: ['Tạo token tại github.com/settings/personal-access-tokens', 'Dán vào Cài đặt › GitHub token'], closeWhen: 'Có token hợp lệ', score: 5000 });
@@ -163,17 +166,23 @@ function briefLines() {
 }
 
 /* ---------------- views ---------------- */
-const TABS_M = [['brief', 'Tổng quan', 'M4 13h6V4H4zm0 7h6v-5H4zm10 0h6v-9h-6zm0-16v5h6V4z'], ['global', 'Global', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z'], ['local', 'Local', 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'], ['radar', 'Issue Radar', 'M12 3 2.5 20h19L12 3zm0 6v5m0 3v.5'], ['tasks', 'Giao việc', 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'], ['team', 'Nhân sự', 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm13 10v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8'], ['routine', 'Định kỳ', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['sheet', 'Sheet', 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 9h18M3 15h18M9 3v18']];
-const TABS_S = [['brief', 'Tổng quan', TABS_M[0][2]], ['__ch', '', ''], ['radar', 'Issue của tôi', TABS_M[3][2]], ['tasks', 'Việc được giao', TABS_M[4][2]], ['routine', 'Định kỳ', TABS_M[6][2]], ['team', 'Điểm của tôi', TABS_M[5][2]], ['sheet', 'Sheet', TABS_M[7][2]]];
+const TABS_M = [['brief', 'Tổng quan', 'M4 13h6V4H4zm0 7h6v-5H4zm10 0h6v-9h-6zm0-16v5h6V4z'], ['global', 'Global', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z'], ['local', 'Kệ 3 tầng', 'M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z'], ['nikon', 'Nikon', 'M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z'], ['radar', 'Issue Radar', 'M12 3 2.5 20h19L12 3zm0 6v5m0 3v.5'], ['tasks', 'Việc từ issue', 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9'], ['team', 'Nhân sự', 'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm13 10v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8'], ['routine', 'Định kỳ', 'M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'], ['sheet', 'Sheet', 'M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 9h18M3 15h18M9 3v18']];
+const TI = Object.fromEntries(TABS_M.map(t => [t[0], t]));
+TI.work = ['work', 'Công việc', 'M9 5H5v4h4zM9 15H5v4h4zM13 7h6M13 17h6M5.5 12h13']; TI.chat = ['chat', 'Chat', 'M21 12a8 8 0 0 1-11.8 7L4 20l1.1-4.4A8 8 0 1 1 21 12z'];
+const TABS_MGR = ['brief', 'work', 'chat', 'global', 'local', 'nikon', 'radar', 'tasks', 'team', 'routine', 'sheet'];
+const TABS_STAFF = ch => ['brief', 'work', 'chat', ...(ch === 'global' ? ['global'] : ['local', 'nikon']), 'radar', 'tasks', 'routine', 'team', 'sheet'];
+const TAB_LABEL_STAFF = { radar: 'Issue của tôi', tasks: 'Việc từ issue', team: 'Điểm của tôi' };
 function renderTabs() {
-  const T = isMgr() ? TABS_M : TABS_S.map(x => x[0] === '__ch' ? (S.me.channel === 'global' ? TABS_M[1] : TABS_M[2]) : x), badge = { radar: S.issues.filter(i => i.effSev === 'P0' && i.kind === 'issue').length, tasks: S.led.tasks.filter(t => isMgr() ? t.state === 'review' || t.overdue : t.state !== 'closed').length };
+  const T = (isMgr() ? TABS_MGR : TABS_STAFF(S.me.channel)).map(k => isMgr() || !TAB_LABEL_STAFF[k] ? TI[k] : [k, TAB_LABEL_STAFF[k], TI[k][2]]), badge = { radar: S.issues.filter(i => i.effSev === 'P0' && i.kind === 'issue').length, tasks: S.led.tasks.filter(t => isMgr() ? t.state === 'review' || t.overdue : t.state !== 'closed').length, chat: (S.badge || {}).chat || 0, work: (S.badge || {}).work || 0 };
   $('#tabs').innerHTML = T.map(([k, l, d]) => `<button role="tab" data-tab="${k}" aria-selected="${S.tab === k}"><svg viewBox="0 0 24 24"><path d="${d}"/></svg><span class="l">${l}</span>${badge[k] ? `<b class="sev P0" style="min-width:20px;height:18px;font-size:10.5px">${badge[k]}</b>` : ''}</button>`).join('');
 }
 function render() {
   renderTabs();
+  if (S.tab === 'work' || S.tab === 'chat') { window.CCSheet.unmount(); $('#view').innerHTML = `<section id="cxRoot" class="cx-root ${S.tab}"></section>`; $('#view').onclick = null; window.CCX.mount($('#cxRoot'), S.tab); return; }
+  window.CCX.unmount();
   if (S.tab === 'sheet') { $('#view').innerHTML = '<section id="sheetRoot" class="sheet-root"></section>'; window.CCSheet.mount($('#sheetRoot'), S.sheetHost); $('#view').onclick = null; return; }
   window.CCSheet.unmount();
-  const v = { brief: viewBrief, global: viewGlobal, local: viewLocal, radar: viewRadar, tasks: viewTasks, team: viewTeam, routine: viewRoutine }[S.tab] || viewBrief;
+  const v = { brief: viewBrief, global: viewGlobal, local: viewLocal, nikon: viewNikon, radar: viewRadar, tasks: viewTasks, team: viewTeam, routine: viewRoutine }[S.tab] || viewBrief;
   $('#view').innerHTML = v(); bindView();
 }
 function freshPill(label, iso, err) {
@@ -204,7 +213,7 @@ function viewBrief() {
   if (L) kp.push(kpi('Local · Thực thu / kệ', vnd(L.l30.unitNet), `target ${vnd(L.plan.netPerUnit)} · giá sàn ${vnd(L.plan.floorPrice)}`, '(Giá bán − voucher shop − phí sàn) ÷ số kệ, 30 ngày'));
   const nP0 = iss.filter(i => i.effSev === 'P0' && i.kind === 'issue').length, nP1 = iss.filter(i => i.effSev === 'P1' && i.kind === 'issue').length, od = S.led.tasks.filter(t => t.overdue).length, rv = S.led.tasks.filter(t => t.state === 'review').length;
   return `<div class="page-head"><div><h1>${hello}, ${esc(isMgr() ? (S.me.name || '').split(' ').pop() : S.me.name.split(' ').pop())}</h1><p>${new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p></div>
-    <div class="fresh">${S.me.lg ? freshPill('Lignarc', S.G && S.G.updatedAt, S.src.gErr) : ''}${S.me.lf ? freshPill('Shopee', S.L && S.L.updatedAt, S.src.lErr) : ''}${S.apiErr ? `<span class="pill warn"><i></i>Sổ giao việc: ${esc(S.apiErr)}</span>` : ''}</div></div>
+    <div class="fresh">${S.me.lg ? freshPill('Lignarc', S.G && S.G.updatedAt, S.src.gErr) : ''}${S.me.lf ? freshPill('Kệ 3 tầng', S.L && S.L.updatedAt, S.src.lErr) : ''}${S.me.nk || (isDemo && S.me.lf) ? freshPill('Nikon', S.N && S.N.updatedAt, S.src.nErr) : ''}${S.apiErr ? `<span class="pill warn"><i></i>Sổ giao việc: ${esc(S.apiErr)}</span>` : ''}</div></div>
   <section class="card glass"><h3>Tóm tắt sáng nay</h3><div class="brief-lines">${briefLines().map(x => `<div>${x}</div>`).join('')}</div></section>
   <div class="grid g-kpi">${kp.join('')}</div>
   <div class="grid g-kpi">${kpi('Issue Critical (P0)', `<span style="color:var(--crit-ink)">${nP0}</span>`, `${nP1} High (P1)`)}${kpi('Việc quá hạn', String(od), `${S.led.tasks.filter(t => t.state !== 'closed').length} việc đang mở`)}${kpi('Chờ ' + PRON() + ' duyệt', String(rv), 'Nhân viên báo xong, cần đối chiếu')}${kpi('Miss báo cáo', `<span style="color:${miss ? 'var(--crit-ink)' : 'inherit'}">${miss}</span>`, 'Issue P0/P1 quá 24h nhân viên chưa báo')}</div>
@@ -309,6 +318,28 @@ function viewLocal() {
   ${card('P&L tháng này so với bảng target', 'Kế hoạch phân bổ theo số ngày đã qua · chưa gồm COGS', `<div class="tw"><table class="t"><tr><th>Hạng mục</th><th class="r">Thực tế MTD</th><th class="r">Kế hoạch tới hôm nay</th><th class="r">Kế hoạch cả tháng</th></tr>
     ${(() => { const k = L.dNow / L.dIn, pn = planNet, rows = [['Sản lượng (kệ)', m.units, tu * k, tu, v => Math.round(v)], ['Net GMV / NMV', m.nmv, pn * k, pn, vnd], ['Phí sàn', m.fee, pn * 0.3598 * k, pn * 0.3598, vnd], ['Quảng cáo', m.adCost, pn * 0.04 * k, pn * 0.04, vnd], ['Doanh thu thuần thực về', netRev, pn * 0.6002 * k, pn * 0.6002, vnd], ['Thuê kho Suối Nghệ', rent, P.rent * k, P.rent, vnd], ['Profit (chưa COGS)', profit, (pn * 0.6002 * 0.97 - P.rent) * k, pn * 0.6002 * 0.97 - P.rent, vnd], ['Thực thu / kệ', L.mtd.unitNet, P.netPerUnit, P.netPerUnit, vnd]]; return rows.map(([l, a, b, c, f]) => `<tr><td><b>${l}</b></td><td class="r"><b>${f(a)}</b></td><td class="r">${f(b)}</td><td class="r sub">${f(c)}</td></tr>`).join(''); })()}</table></div>`)}
   ${issueMini('local')}`;
+}
+function viewNikon() {
+  const N = S.N;
+  if (!N) return `<div class="page-head"><div><h1>Nikon Việt Nam · Shopee</h1></div></div><section class="card glass"><div class="empty2">${esc(S.src.nErr || 'Chưa kết nối dữ liệu Nikon — quản lý vào Cài đặt › Kết nối dữ liệu nguồn (tài khoản dash Local).')}</div></section>`;
+  const m = N.mtd, pm = N.period(E.isoAdd(N.ym + '-01', -1).slice(0, 7) + '-01', E.isoAdd(N.ym + '-01', -1)), pmToDay = N.period(E.isoAdd(N.ym + '-01', -1).slice(0, 7) + '-01', E.isoAdd(N.ym + '-01', -1).slice(0, 7) + '-' + String(Math.min(N.dNow, 28)).padStart(2, '0'));
+  const d30 = N.daily(E.isoAdd(N.today, -29), N.today), proj = N.dNow ? m.nmv / N.dNow * N.dIn : 0;
+  const prods = {}; N.orders.filter(o => !o.cx && o.date > E.isoAdd(N.today, -30)).forEach(o => { const k = o.sku || o.m || 'Khác'; (prods[k] = prods[k] || { l: k, v: 0 }).v += o.v; });
+  const r30 = N.reviews.filter(r => r.date > E.isoAdd(N.today, -30)), avg = r30.length ? r30.reduce((a, r) => a + r.star, 0) / r30.length : null;
+  return `<div class="page-head"><div><h1>Nikon Việt Nam · Shopee</h1><p>VND · cập nhật ${N.updatedAt ? dt(N.updatedAt) : '–'} · so với cùng kỳ tháng trước</p></div><div class="fresh"><a class="btn ghost" href="${CFG.DASH_LOCAL}" target="_blank" rel="noopener">Mở dash Local ↗</a></div></div>
+  <section class="hero card glass">${ring(pm.nmv ? proj / pm.nmv : 0, 'dự phóng / T trước', proj >= pm.nmv ? 'var(--s4)' : 'var(--s2)')}
+    <div><h2>NMV ${mLab(N.ym)} · tháng đến hôm nay</h2><div class="big">${vndS(m.nmv)}₫ <span class="of">· cùng kỳ T trước ${vndS(pmToDay.nmv)}₫</span></div>
+    <div class="line">Dự phóng cả tháng ${vndS(proj)}₫ so với tháng trước ${vndS(pm.nmv)}₫ ${delta(proj, pm.nmv)}</div>
+    <div class="hero-stats"><div><b>${m.orders}</b><span>Đơn (MTD)</span></div><div><b>${m.units}</b><span>Sản phẩm (MTD)</span></div><div><b>${vnd(m.asp)}</b><span>Giá bán TB / sp</span></div><div><b>${pct(m.take, 1)}</b><span>Phí sàn</span></div><div><b>${avg ? avg.toFixed(2) + '★' : '–'}</b><span>Rating 30N (${r30.length})</span></div></div></div></section>
+  <div class="grid g-kpi">
+    ${kpi('NMV 30 ngày', vndS(N.l30.nmv) + '₫', delta(N.l30.nmv, N.p30.nmv) + ' so với 30 ngày trước')}
+    ${kpi('Thực nhận 30 ngày', vndS(N.l30.net) + '₫', 'sau phí sàn, voucher, ads tiền nạp')}
+    ${kpi('Hủy · Trả hàng (30N)', `${pct(N.l30.cxRate)} · ${pct(N.l30.retRate)}`, `${N.l30.cx} đơn hủy / ${N.l30.all} đơn`)}
+    ${kpi('Ads (30N)', vndS(N.l30.adCost) + '₫', `ROAS ${N.l30.roas ? N.l30.roas.toFixed(1) : '–'} · FS ${pct(N.l30.fsShare)} NMV`)}
+  </div>
+  <div class="grid g-21">${card('NMV theo ngày', '30 ngày gần nhất', dbars(d30, 'nmv', v => vndS(v) + '₫', '#d9a400') + `<div class="legend2" style="margin-top:22px"><span>Tổng 30 ngày ${vndS(N.l30.nmv)}₫ · ${N.l30.orders} đơn</span></div>`)}
+    ${card('Top sản phẩm 30 ngày', 'theo NMV (SKU trên đơn)', hbars(Object.values(prods).sort((a, b) => b.v - a.v), v => vndS(v) + '₫', 8, '#d9a400'))}</div>
+  ${issueMini('nikon')}`;
 }
 function issueMini(ch) {
   const is = S.issues.filter(i => i.channel === ch && i.kind === 'issue').slice(0, 5);
@@ -446,6 +477,39 @@ function bindView() {
   };
 }
 
+/* ---------------- private chat keys ---------------- */
+let PUBS = null; const DMK = {};
+async function ensureDH(me, pass) {
+  if (isDemo || !ST.hasToken()) return;
+  if (!me.dh) {
+    const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+    me.dh = { priv: await crypto.subtle.exportKey('jwk', kp.privateKey), pub: await crypto.subtle.exportKey('jwk', kp.publicKey) };
+    const f = await ST.getFile('data/vault.json'), b = await ST.openSlot(JSON.parse(f.text), me.username, pass);
+    const slot = await ST.makeSlot(me.username, pass, { ...b, dh: me.dh });
+    await ST.updatePlain('data/vault.json', v => { v.users = (v.users || []).filter(u => u.h !== slot.h).concat(slot); return v; }, 'account: ' + me.username + ' bật chat riêng', { v: 2, iter: 250000, users: [] });
+  }
+  await publishPub(me);
+}
+async function publishPub(me) {
+  if (isDemo || !me.dh || !ST.hasToken()) return;
+  const f = await ST.getFile('data/pubkeys.json'), cur = f ? JSON.parse(f.text) : {};
+  if (cur[me.id] && cur[me.id].x === me.dh.pub.x) { PUBS = cur; return; }
+  PUBS = await ST.updatePlain('data/pubkeys.json', v => { v[me.id] = me.dh.pub; return v; }, 'account: khoá chat riêng của ' + me.id, {});
+}
+async function dmKey(other) {
+  if (!S.me.dh) return null; if (DMK[other]) return DMK[other];
+  if (!PUBS || !PUBS[other]) { const f = await ST.getFile('data/pubkeys.json'); PUBS = f ? JSON.parse(f.text) : {}; }
+  if (!PUBS[other]) return null;
+  const mine = await crypto.subtle.importKey('jwk', S.me.dh.priv, { name: 'ECDH', namedCurve: 'P-256' }, false, ['deriveBits']);
+  const theirs = await crypto.subtle.importKey('jwk', PUBS[other], { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  return (DMK[other] = ST.b64e(await crypto.subtle.deriveBits({ name: 'ECDH', public: theirs }, mine, 256)));
+}
+function collabHost() {
+  return { me: S.me, team: CFG.TEAM.map(p => p.id === S.me.id ? { ...p, name: S.me.name || p.name } : p), keys: S.me.keys || {}, ST, isDemo, dmKey,
+    now: () => isDemo ? new Date().toISOString() : ST.now(), toast, modal, closeModal, canWrite: () => isDemo || ST.hasToken(),
+    goto: t => { S.tab = t; render(); scrollTo({ top: 0 }); }, tab: () => S.tab, onBadge: b => { S.badge = b; renderTabs(); } };
+}
+
 /* ---------------- shell, accounts & settings ---------------- */
 function remember(me) { const j = JSON.stringify(me); if (store.get('mp-me')) store.set('mp-me', j); else { try { sessionStorage.setItem('mp-me', j); } catch (e) {} } }
 async function changePassword(oldp, newp) {
@@ -481,11 +545,20 @@ async function connectSources(lgU, lgP, lfU, lfP) {
     S.me.lg = ST.b64e(dk); out.push('Lignarc ✓ ' + (((d.wf || {}).orders || []).length) + ' dòng đơn');
   }
   if (lfP) {
+    let keys = null;
+    try {
+      const kr = await (await fetch(CFG.SRC_KEYRING + '?ts=' + Date.now(), { cache: 'no-store' })).json();
+      keys = await Promise.any((kr.users || []).map(async u => { const raw = new Uint8Array(await (await pb(lfU, lfP, b64d(u.salt))).bits()); const j = await openWith(raw, u); return j.shops; }));
+    } catch (e) { keys = null; }
+    let lfRaw, nkB64 = null;
+    if (keys && keys.lf) { lfRaw = b64d(keys.lf); nkB64 = keys.nikon || null; }
+    else { const lf = await (await fetch(CFG.SRC_LOCAL + '?ts=' + Date.now(), { cache: 'no-store' })).json(); lfRaw = new Uint8Array(await (await pb(lfU, lfP, b64d(lf.salt))).bits()); }
     const lf = await (await fetch(CFG.SRC_LOCAL + '?ts=' + Date.now(), { cache: 'no-store' })).json();
-    const raw = new Uint8Array(await (await pb(lfU, lfP, b64d(lf.salt))).bits());
-    let d; try { d = await openWith(raw, lf); } catch (e) { throw new Error('Kệ 3 tầng: sai email hoặc mật khẩu'); }
-    await ST.updateEnc('data/src-local.enc.json', K.L, () => ({ lf: ST.hex(raw), at: ST.now() }), 'config: kết nối dữ liệu Shopee', {});
-    S.me.lf = ST.hex(raw); out.push('Shopee ✓ ' + (d.orders || []).length + ' đơn');
+    let d; try { d = await openWith(lfRaw, lf); } catch (e) { throw new Error('Dash Local: sai email hoặc mật khẩu'); }
+    let nInfo = '';
+    if (nkB64) { try { const nf = await (await fetch(CFG.SRC_NIKON + '?ts=' + Date.now(), { cache: 'no-store' })).json(); const nd = await openWith(b64d(nkB64), nf); nInfo = ' · Nikon ✓ ' + (nd.orders || []).length + ' đơn'; } catch (e) { nInfo = ' · Nikon ✗'; nkB64 = null; } }
+    await ST.updateEnc('data/src-local.enc.json', K.L, () => ({ lf: ST.hex(lfRaw), nikon: nkB64, at: ST.now() }), 'config: kết nối dữ liệu Shopee (LF + Nikon)', {});
+    S.me.lf = ST.hex(lfRaw); S.me.nk = nkB64; out.push('Kệ 3 tầng ✓ ' + (d.orders || []).length + ' đơn' + nInfo);
   }
   remember(S.me); return out.join(' · ');
 }
@@ -503,8 +576,8 @@ function settings() {
     <div class="set-sec"><b>Tài khoản</b><button class="btn" id="sPw">Đổi mật khẩu</button></div>
     ${isMgr() ? `<div class="set-sec"><b>Hiển thị</b><label>Tên hiển thị<input id="sName" value="${esc(S.me.name)}"></label><label>Nhân viên xưng hô với quản lý<select id="sPron"><option value="anh">anh</option><option value="chị">chị</option></select></label><label>Tỷ giá USD → VND<input id="sFx" inputmode="numeric" value="${S.fx}"></label></div>` : ''}
     ${mgr ? `<div class="set-sec"><b>GitHub token ${ST.hasToken() ? '<span class="tag good">đang hoạt động</span>' : '<span class="tag bad">chưa có</span>'}</b><p class="sub">Fine-grained token chỉ cho repo ${esc(CFG.REPO)}, quyền Contents: Read and write. Được mã hoá; nhân viên dùng chung để lưu việc & Sheet.</p><label>Token<input id="sTok" placeholder="github_pat_…" autocomplete="off"></label><button class="btn" id="sTokGo">Lưu token</button> <span id="sTokOut" class="sub"></span></div>
-    <div class="set-sec"><b>Kết nối dữ liệu nguồn ${S.me.lg ? '<span class="tag good">Lignarc ✓</span>' : '<span class="tag bad">Lignarc ✗</span>'} ${S.me.lf ? '<span class="tag good">Shopee ✓</span>' : '<span class="tag bad">Shopee ✗</span>'}</b><p class="sub">Đăng nhập 2 dash gốc một lần để Command Center đọc được dữ liệu. Chỉ khoá giải mã được lưu (mã hoá), không lưu mật khẩu.</p>
-      <div class="set-2"><label>Lignarc · Username<input id="cLgU" value="khoimr11" autocomplete="off"></label><label>Lignarc · Password<input id="cLgP" type="password" autocomplete="off"></label><label>Kệ 3 tầng · Email<input id="cLfU" value="salesb2c.lf@vhg.vn" autocomplete="off"></label><label>Kệ 3 tầng · Password<input id="cLfP" type="password" autocomplete="off"></label></div>
+    <div class="set-sec"><b>Kết nối dữ liệu nguồn ${S.me.lg ? '<span class="tag good">Lignarc ✓</span>' : '<span class="tag bad">Lignarc ✗</span>'} ${S.me.lf ? '<span class="tag good">Kệ 3 tầng ✓</span>' : '<span class="tag bad">Kệ 3 tầng ✗</span>'} ${S.me.nk ? '<span class="tag good">Nikon ✓</span>' : '<span class="tag bad">Nikon ✗</span>'}</b><p class="sub">Đăng nhập 2 dash gốc một lần để Command Center đọc được dữ liệu. Chỉ khoá giải mã được lưu (mã hoá), không lưu mật khẩu.</p>
+      <div class="set-2"><label>Lignarc · Username<input id="cLgU" value="khoimr11" autocomplete="off"></label><label>Lignarc · Password<input id="cLgP" type="password" autocomplete="off"></label><label>Dash Local (Kệ 3 tầng + Nikon) · Email<input id="cLfU" value="salesb2c.lf@vhg.vn" autocomplete="off"></label><label>Dash Local · Password<input id="cLfP" type="password" autocomplete="off"></label></div>
       <button class="btn" id="cGo">Kết nối</button> <span id="cOut" class="sub"></span></div>
     <div class="set-sec"><b>Tài khoản nhân viên</b>${team.map(t => `<div class="set-row"><span>${esc(t.name)} · @${esc(t.username)} · ${t.channel === 'global' ? 'Global' : 'Local'}</span><button class="btn ghost" data-reset="${esc(t.id)}">Đặt lại mật khẩu</button></div>`).join('')}</div>` : ''}
     ${isDemo ? `<div class="set-sec"><b>Xem như (demo)</b><select id="mAs"><option value="manager">Quản lý</option><option value="trang">Thuỳ Trang (Global)</option><option value="phu">Đình Phú (Local)</option></select></div>` : ''}
@@ -520,7 +593,7 @@ function settings() {
       if (q('#sFx')) { const v = +String(q('#sFx').value).replace(/\D/g, ''); if (v > 1000) { S.fx = v; store.set('cc-fx', v); } }
       if (q('#sPron')) store.set('mp-pron', q('#sPron').value);
       if (q('#sName') && q('#sName').value.trim()) { S.me.name = q('#sName').value.trim(); store.set('mp-name-' + S.me.id, S.me.name); remember(S.me); }
-      if (isDemo) { S.me = { ...DEMO_USERS[q('#mAs').value] }; S.tab = 'brief'; S.sheetHost = sheetHost(); await loadEvents(); }
+      if (isDemo && q('#mAs').value !== (S.me.role === 'manager' ? 'manager' : S.me.id)) { closeModal(); S.tab = 'brief'; return start({ ...DEMO_USERS[q('#mAs').value] }); }
       closeModal(); await compute(); render(); showWho();
     };
   });
@@ -533,7 +606,7 @@ function sheetHost() {
     read: async k => isDemo ? dread(k) : ST.readEnc(`data/sheets-${k}.enc.json`, K[k], { sheets: [] }),
     write: async (k, mutate, msg) => { if (isDemo) { const d = mutate(dread(k)); store.set(dkey(k), JSON.stringify(d)); return d; } return ST.updateEnc(`data/sheets-${k}.enc.json`, K[k], mutate, msg, { sheets: [] }); } };
 }
-function showWho() { $('#who').textContent = (S.me.role === 'manager' ? 'Quản lý · ' : 'NV · ') + S.me.name; $('#sub').textContent = S.me.role === 'manager' ? 'Global · Local · Accountability' : (S.me.channel === 'global' ? 'Global · Wayfair / Amazon' : 'Local · Shopee'); }
+function showWho() { $('#who').textContent = (S.me.role === 'manager' ? 'Quản lý · ' : 'NV · ') + S.me.name; $('#sub').textContent = S.me.role === 'manager' ? 'Command Center · Quản lý' : (S.me.channel === 'global' ? 'Command Center · Global' : 'Command Center · Local · Nikon'); }
 async function start(me) {
   S.me = me; const nm = store.get('mp-name-' + me.id); if (nm) S.me.name = nm;
   $('#login').hidden = true; $('#app').hidden = false; showWho();
@@ -542,6 +615,8 @@ async function start(me) {
   const [src] = await Promise.all([loadSources(me), loadEvents()]); S.src = src;
   await compute(); render(); snapshotOncePerDay();
   if (me.mustChange && !isDemo) pwModal(true);
+  if (!isDemo) publishPub(me).catch(() => {});
+  window.CCX.init(collabHost()).catch(e => console.warn('collab', e));
 }
 const th0 = store.get('lg-theme'); if (th0) document.documentElement.dataset.theme = th0;
 $('#themeBtn').onclick = () => { const r = document.documentElement, cur = r.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'), n = cur === 'dark' ? 'light' : 'dark'; r.dataset.theme = n; store.set('lg-theme', n); };
@@ -552,7 +627,7 @@ $('#tabs').onclick = e => { const b = e.target.closest('[data-tab]'); if (b) { S
 addEventListener('beforeunload', e => { if (window.CCSheet.hasUnsaved()) { e.preventDefault(); e.returnValue = ''; } });
 $('#loginForm').addEventListener('submit', async e => {
   e.preventDefault(); const btn = $('#loginBtn'); btn.disabled = true; btn.textContent = 'Đang giải mã…'; $('#loginErr').textContent = '';
-  try { const me = await login($('#user').value, $('#pass').value); const j = JSON.stringify(me); if ($('#remember').checked) store.set('mp-me', j); else sessionStorage.setItem('mp-me', j); $('#pass').value = ''; start(me); }
+  try { const pw = $('#pass').value, me = await login($('#user').value, pw); await unlock(me); await ensureDH(me, pw).catch(e => console.warn('dh', e)); const j = JSON.stringify(me); if ($('#remember').checked) store.set('mp-me', j); else sessionStorage.setItem('mp-me', j); $('#pass').value = ''; start(me); }
   catch (x) { $('#loginErr').textContent = x.message === 'bad' ? 'Sai tài khoản hoặc mật khẩu' : x.message; }
   finally { btn.disabled = false; btn.textContent = 'Đăng nhập'; }
 });

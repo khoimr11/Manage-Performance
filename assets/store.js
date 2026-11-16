@@ -40,27 +40,37 @@ window.CCS = (() => {
 
   /* ---------- GitHub ---------- */
   const API = `https://api.github.com/repos/${CFG.OWNER}/${CFG.REPO}/contents/`;
+  // accounts & config stay on main (readable before login, also via GitHub Pages); everything that changes often lives on the data branch
+  const MAIN_FILES = /^data\/(vault\.json|token\.enc\.json|src-[a-z]+\.enc\.json)$/;
+  const branchOf = path => MAIN_FILES.test(path) || !CFG.DATA_BRANCH ? CFG.BRANCH : CFG.DATA_BRANCH;
   const hdr = () => token ? { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json' } : { Accept: 'application/vnd.github+json' };
-  async function getFile(path) {
-    // freshest copy via the API (authenticated when the token is known); falls back to the GitHub Pages copy
+  async function apiGet(path, ref) {
     let r = null;
-    try { r = await fetch(API + path + '?ref=' + CFG.BRANCH, { headers: hdr(), cache: 'no-store' }); } catch (e) { r = null; }
-    if (r) {
-      if (r.status === 404) return null;
-      if (r.ok) {
-        const j = await r.json();
-        if (j.encoding === 'base64' && j.content) return { sha: j.sha, text: td.decode(b64d(j.content.replace(/\n/g, ''))) };
-        if (j.sha) { const b = await fetch(`https://api.github.com/repos/${CFG.OWNER}/${CFG.REPO}/git/blobs/${j.sha}`, { headers: hdr(), cache: 'no-store' }); if (b.ok) { const bj = await b.json(); return { sha: j.sha, text: td.decode(b64d(bj.content.replace(/\n/g, ''))) }; } }
-      }
+    try { r = await fetch(API + path + '?ref=' + ref, { headers: hdr(), cache: 'no-store' }); } catch (e) { return { err: true }; }
+    if (r.status === 404) return { none: true };
+    if (!r.ok) return { err: true, status: r.status };
+    const j = await r.json();
+    if (j.encoding === 'base64' && j.content) return { sha: j.sha, text: td.decode(b64d(j.content.replace(/\n/g, ''))) };
+    if (j.sha) { const b = await fetch(`https://api.github.com/repos/${CFG.OWNER}/${CFG.REPO}/git/blobs/${j.sha}`, { headers: hdr(), cache: 'no-store' }); if (b.ok) { const bj = await b.json(); return { sha: j.sha, text: td.decode(b64d(bj.content.replace(/\n/g, ''))) }; } }
+    return { err: true };
+  }
+  async function getFile(path) {
+    const br = branchOf(path), x = await apiGet(path, br);
+    if (x.text != null) return { sha: x.sha, text: x.text };
+    if (br !== CFG.BRANCH) {
+      if (x.none) { const m = await apiGet(path, CFG.BRANCH); return m.text != null ? { sha: null, text: m.text, legacy: true } : null; } // file not moved to the data branch yet
+      if (x.err) throw new Error('Không đọc được ' + path + (x.status ? ' (' + x.status + ')' : ''));
     }
-    const r2 = await fetch(path + '?ts=' + Date.now(), { cache: 'no-store' });
+    if (x.none) return null;
+    const r2 = await fetch(path + '?ts=' + Date.now(), { cache: 'no-store' });  // GitHub Pages copy (main branch)
     if (r2.status === 404) return null; if (!r2.ok) throw new Error('Không tải được ' + path + ' (' + r2.status + ')');
     return { sha: null, text: await r2.text() };
   }
   async function putFile(path, text, sha, message) {
     if (!token) throw new Error('Chưa có GitHub token — quản lý cần nhập trong Cài đặt');
-    if (!sha) { const cur = await fetch(API + path + '?ref=' + CFG.BRANCH, { headers: hdr(), cache: 'no-store' }); if (cur.ok) sha = (await cur.json()).sha; }
-    const r = await fetch(API + path, { method: 'PUT', headers: { ...hdr(), 'Content-Type': 'application/json' }, body: JSON.stringify({ message, content: b64e(te.encode(text)), branch: CFG.BRANCH, ...(sha ? { sha } : {}) }) });
+    const br = branchOf(path);
+    if (!sha) { const cur = await fetch(API + path + '?ref=' + br, { headers: hdr(), cache: 'no-store' }); if (cur.ok) sha = (await cur.json()).sha; }
+    const r = await fetch(API + path, { method: 'PUT', headers: { ...hdr(), 'Content-Type': 'application/json' }, body: JSON.stringify({ message, content: b64e(te.encode(text)), branch: br, ...(sha ? { sha } : {}) }) });
     if (r.status === 409 || r.status === 422) { const e = new Error('conflict'); e.conflict = true; throw e; }
     if (r.status === 401 || r.status === 403) throw new Error('GitHub token không hợp lệ hoặc hết hạn (' + r.status + ')');
     if (!r.ok) throw new Error('GitHub ' + r.status + ': ' + (await r.text()).slice(0, 140));
@@ -86,9 +96,23 @@ window.CCS = (() => {
     }
     throw new Error('Nhiều người cùng ghi, vui lòng thử lại');
   }
+  /** cheap change detector: latest commit of the data branch, conditional request (a 304 does not count against the API limit) */
+  let pollTag = null, pollSha = null;
+  async function poll() {
+    if (!token) return { changed: false };
+    try {
+      const r = await fetch(`https://api.github.com/repos/${CFG.OWNER}/${CFG.REPO}/commits?sha=${CFG.DATA_BRANCH || CFG.BRANCH}&per_page=5`, { headers: { ...hdr(), ...(pollTag ? { 'If-None-Match': pollTag } : {}) }, cache: 'no-store' });
+      if (r.status === 304) return { changed: false };
+      if (!r.ok) return { changed: false };
+      pollTag = r.headers.get('etag'); const j = await r.json(), head = j[0] && j[0].sha;
+      if (!head || head === pollSha) return { changed: false };
+      const first = pollSha == null; pollSha = head;
+      return { changed: !first, msgs: j.map(c => c.commit && c.commit.message || '') };
+    } catch (e) { return { changed: false }; }
+  }
   async function syncClock() { try { const r = await fetch('data/vault.json?clock=' + Date.now(), { method: 'HEAD', cache: 'no-store' }); const d = r.headers.get('date'); if (d) skew = Date.parse(d) - Date.now(); } catch (e) {} }
   const now = () => new Date(Date.now() + skew).toISOString();
 
-  return { enc, dec, hmac, newKey, hint, makeSlot, openSlot, getFile, putFile, readEnc, updateEnc, updatePlain, syncClock, now, sha, b64e, b64d, hex, clone,
+  return { enc, dec, hmac, newKey, hint, makeSlot, openSlot, getFile, putFile, readEnc, updateEnc, updatePlain, syncClock, now, poll, branchOf, sha, b64e, b64d, hex, clone,
     setToken: t => { token = t || null; }, hasToken: () => !!token, get skew() { return skew; } };
 })();

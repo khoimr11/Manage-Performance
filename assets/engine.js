@@ -97,6 +97,7 @@ const LOCAL_PLAN = {
   endStock: [2605, 2305, 1750, 1417, 1017, 537, 0],
   feePct: { fixed: 0.1319, tx: 0.06, vxtra: 0.052, aff: 0.10, ads: 0.04 }, piship: 5052
 };
+const NIKON_PLAN = { start: '2026-11', listPrice: 0, floorPrice: 0, netPerUnit: 0, netRate: 0.7, rent: 0, stock0: 0, months: [], units: [], endStock: [], feePct: {}, piship: 0 };
 function modelLocal(d, plan = LOCAL_PLAN, opt = {}) {
   d = d || {}; const now = opt.now || nowSec(), today = vnISO(now);
   const LIST = {}; (d.products || []).forEach(p => { LIST[p[4]] = { list: p[5], promo: p[6], stock: p[7], name: p[2], model: p[3] }; });
@@ -147,7 +148,7 @@ function modelLocal(d, plan = LOCAL_PLAN, opt = {}) {
 /* ============================== RULE ENGINE ============================== */
 const SEV = ['P3', 'P2', 'P1', 'P0'], SLA = { P0: 1, P1: 3, P2: 7, P3: null }, W8 = { P0: 1000, P1: 300, P2: 60, P3: 10 };
 const bump = s => SEV[Math.min(3, SEV.indexOf(s) + 1)];
-function detect(G, L, ctx = {}) {
+function detect(G, L, ctx = {}, N = null) {
   const out = [], fx = ctx.fx || 26300, nowS = ctx.now || nowSec(), today = todayVN();
   const add = (o) => { o.key = o.rule + (o.subject ? '|' + o.subject : ''); o.impactVnd = Math.round(o.impactVnd || 0); o.score = W8[o.sev] + Math.log10(1 + o.impactVnd / 1e5) * 25 + Math.min(30, (o.age || 0) * 3) + (o.kind === 'opportunity' ? -20 : 0); out.push(o); };
   const ageFrom = iso => iso ? Math.max(0, isoDiff(String(iso).slice(0, 10), today)) : null;
@@ -236,18 +237,18 @@ function detect(G, L, ctx = {}) {
     for (const c of G.camps) if (c.spend > 0 && c.sales / c.spend >= 6 && c.orders >= 3) add({ ...o, rule: 'G-OPP-SCALE-ADS', subject: c.id, sev: 'P2', kind: 'opportunity', title: `Campaign ${c.name} ROAS ${(c.sales / c.spend).toFixed(1)} — nên tăng ngân sách`, impactVnd: c.sales * 0.3 * fx, steps: ['Tăng ngân sách 20–30%', 'Theo dõi ROAS 7 ngày sau tăng'], closeWhen: 'evidence: ảnh chụp ngân sách mới' });
   }
 
-  // ---------- LOCAL ----------
-  if (L) {
-    const o = { channel: 'local', owner: 'phu' }, vnd = v => Math.round(v).toLocaleString('vi-VN') + '₫', P = L.plan, hNow = nowS;
-    if (L.tgtUnits && L.dNow >= 5) {
+  // ---------- LOCAL (Shopee shops: Living Furniture kệ 3 tầng, Nikon) ----------
+  const runShop = (L, o, tag) => {
+    const vnd = v => Math.round(v).toLocaleString('vi-VN') + '₫', P = L.plan, hNow = nowS, start = out.length;
+    if (P.months.length && L.tgtUnits && L.dNow >= 5) {
       const r = L.mtd.units / L.paceUnits, gap = L.tgtUnits - L.projUnits;
       if (r < 0.9) add({ ...o, rule: 'L-PACE', sev: r < 0.75 ? 'P0' : 'P1', title: `Sản lượng MTD ${L.mtd.units}/${Math.round(L.paceUnits)} pcs (${(r * 100).toFixed(0)}% tiến độ)`, detail: `Target tháng ${L.tgtUnits} pcs · dự phóng ${Math.round(L.projUnits)} pcs · cần ${Math.max(0, Math.ceil((L.tgtUnits - L.mtd.units) / Math.max(1, L.dIn - L.dNow + 1)))} pcs/ngày còn lại.`, impactVnd: Math.max(0, gap) * P.netPerUnit,
         steps: ['Đăng ký thêm khung Flash Sale tuần này', 'Bật/tăng Shopee Ads cho kệ 3 tầng (ngân sách ≤ 4% NMV)', 'Mở Affiliate (KOC) 10% hoa hồng theo kế hoạch'], closeWhen: 'Sản lượng MTD ≥ 90% tiến độ' });
     }
-    const below = L.orders.filter(x => !x.cx && x.q && x.v / x.q < P.floorPrice && x.date > isoAdd(L.today, -14));
+    const below = !P.floorPrice ? [] : L.orders.filter(x => !x.cx && x.q && x.v / x.q < P.floorPrice && x.date > isoAdd(L.today, -14));
     if (below.length) add({ ...o, rule: 'L-BELOW-FLOOR', sev: 'P0', title: `${below.length} đơn bán dưới giá sàn ${vnd(P.floorPrice)}`, detail: below.slice(0, 5).map(x => `${x.sn} · ${vnd(x.v / x.q)}`).join(' · '), since: below[below.length - 1].date, age: ageFrom(below[below.length - 1].date), impactVnd: sum(below, x => (P.floorPrice * x.q - x.v)),
       steps: ['Kiểm tra giá Flash Sale/khuyến mãi đang cài', 'Sửa giá về ≥ 315.000₫ ngay', 'Giải trình nguyên nhân cài sai giá'], closeWhen: 'Không còn đơn mới dưới giá sàn trong 14 ngày' });
-    if (L.l30.units >= 5 && L.l30.unitNet < P.netPerUnit) add({ ...o, rule: 'L-NET-UNIT-LOW', sev: L.l30.unitNet < P.netPerUnit * 0.9 ? 'P1' : 'P2', title: `Thực thu/sp ${vnd(L.l30.unitNet)} < target ${vnd(P.netPerUnit)}`, detail: `30 ngày: giá bán TB ${vnd(L.l30.asp)} · phí sàn ${(L.l30.take * 100).toFixed(1)}% · voucher shop ${vnd(L.l30.sh)}.`, impactVnd: (P.netPerUnit - L.l30.unitNet) * L.l30.units,
+    if (P.netPerUnit && L.l30.units >= 5 && L.l30.unitNet < P.netPerUnit) add({ ...o, rule: 'L-NET-UNIT-LOW', sev: L.l30.unitNet < P.netPerUnit * 0.9 ? 'P1' : 'P2', title: `Thực thu/sp ${vnd(L.l30.unitNet)} < target ${vnd(P.netPerUnit)}`, detail: `30 ngày: giá bán TB ${vnd(L.l30.asp)} · phí sàn ${(L.l30.take * 100).toFixed(1)}% · voucher shop ${vnd(L.l30.sh)}.`, impactVnd: (P.netPerUnit - L.l30.unitNet) * L.l30.units,
       steps: ['Rà voucher shop đang chạy, giảm mức voucher', 'Kiểm tra phí cố định/dịch vụ có đúng gói không', 'Nâng giá FS lên mức đảm bảo thực thu ≥ 189.051₫'], closeWhen: 'Thực thu/sp 30 ngày ≥ 189.051₫' });
     const unconf = L.orders.filter(x => x.cls === 'wait' && /xác nhận/i.test(x.s) && hNow - x.t > 12 * 3600);
     if (unconf.length) add({ ...o, rule: 'L-ORD-UNCONFIRMED', sev: unconf.some(x => hNow - x.t > 24 * 3600) ? 'P0' : 'P1', title: `${unconf.length} đơn chờ xác nhận quá 12h`, detail: unconf.slice(0, 6).map(x => `${x.sn} (${Math.floor((hNow - x.t) / 3600)}h)`).join(' · '), since: unconf[unconf.length - 1].date, age: ageFrom(unconf[unconf.length - 1].date),
@@ -276,26 +277,31 @@ function detect(G, L, ctx = {}) {
       else if (v.lim && v.used / v.lim >= 0.9) add({ ...o, rule: 'L-VOUCHER-USEDUP', subject: v.id, sev: 'P2', title: `Voucher ${v.code || v.name} đã dùng ${v.used}/${v.lim} lượt`, steps: ['Tăng lượt sử dụng hoặc tạo voucher mới'], closeWhen: 'Voucher còn > 10% lượt' });
     }
     if (L.coverDays != null && L.coverDays < 7) add({ ...o, rule: 'L-STOCK-LOW', sev: L.coverDays < 3 ? 'P0' : 'P1', title: `Tồn kho Shopee chỉ đủ ${L.coverDays.toFixed(1)} ngày bán (${L.shopStock} pcs)`, steps: ['Cập nhật tồn kho Shopee từ kho Suối Nghệ', 'Kiểm tra số lượng thực tế tại kho'], closeWhen: 'Tồn Shopee ≥ 7 ngày bán' });
-    if (L.planCum >= 20 && L.soldSince < L.planCum * 0.85) add({ ...o, rule: 'L-WH-BURN', sev: L.soldSince < L.planCum * 0.7 ? 'P1' : 'P2', title: `Giải phóng kho Suối Nghệ chậm: bán ${L.soldSince}/${Math.round(L.planCum)} pcs theo kế hoạch`, detail: `Tồn kho ước tính ${L.whStock}/${P.stock0} pcs · thuê kho 20 triệu/tháng${L.rentPerUnit ? ' ≈ ' + vnd(L.rentPerUnit) + '/pcs bán tháng này' : ''}.`, impactVnd: (L.planCum - L.soldSince) * P.netPerUnit * 0.2,
+    if (P.stock0 && L.planCum >= 20 && L.soldSince < L.planCum * 0.85) add({ ...o, rule: 'L-WH-BURN', sev: L.soldSince < L.planCum * 0.7 ? 'P1' : 'P2', title: `Giải phóng kho Suối Nghệ chậm: bán ${L.soldSince}/${Math.round(L.planCum)} pcs theo kế hoạch`, detail: `Tồn kho ước tính ${L.whStock}/${P.stock0} pcs · thuê kho 20 triệu/tháng${L.rentPerUnit ? ' ≈ ' + vnd(L.rentPerUnit) + '/pcs bán tháng này' : ''}.`, impactVnd: (L.planCum - L.soldSince) * P.netPerUnit * 0.2,
       steps: ['Lập kế hoạch tăng tốc bán (FS, Ads, Affiliate) có số cụ thể', 'Xem xét kênh bán thêm (TikTok Shop, Lazada, B2B)', 'Báo cáo kế hoạch tồn cuối tháng'], closeWhen: 'Sản lượng luỹ kế ≥ 85% kế hoạch' });
     if (L.l7.adPaid > 1000 && !L.l7.adOrd) add({ ...o, rule: 'L-ADS-WALLET-PAID', sev: 'P1', title: `Chi ${vnd(L.l7.adPaid)} tiền nạp cho Ads 7 ngày nhưng 0 đơn từ Ads`, impactVnd: L.l7.adPaid, steps: ['Tạm dừng nhóm quảng cáo không ra đơn', 'Tối ưu từ khoá / giá thầu', 'Đặt ROAS mục tiêu ≥ 8'], closeWhen: 'Có đơn từ Ads hoặc ngừng chi tiền nạp' });
     if (L.l7.adCost > 50000 && L.l7.roas != null && L.l7.roas < 8) add({ ...o, rule: 'L-ADS-ACOS', sev: 'P1', title: `ROAS Shopee Ads 7 ngày ${L.l7.roas.toFixed(1)} (mục tiêu ≥ 8)`, detail: `Chi phí Ads ${(L.l7.nmv ? L.l7.adCost / L.l7.nmv * 100 : 0).toFixed(1)}% NMV (kế hoạch 4%).`, steps: ['Tối ưu từ khoá', 'Hạ giá thầu'], closeWhen: 'ROAS ≥ 8' });
     if (L.p7.nmv > 0 && L.l7.nmv < L.p7.nmv * 0.6) add({ ...o, rule: 'L-WOW', sev: 'P1', title: `NMV 7 ngày giảm ${((1 - L.l7.nmv / L.p7.nmv) * 100).toFixed(0)}% so với tuần trước`, detail: `${vnd(L.l7.nmv)} vs ${vnd(L.p7.nmv)}.`, impactVnd: (L.p7.nmv - L.l7.nmv) * P.netRate, steps: ['Kiểm tra sản phẩm còn hiển thị / bị khoá', 'Kiểm tra Flash Sale, voucher đã hết', 'So giá đối thủ'], closeWhen: 'NMV 7 ngày ≥ 60% tuần trước' });
     if (L.l30.orders >= 10 && L.l30.take > 0.30) add({ ...o, rule: 'L-FEE-DRIFT', sev: 'P2', title: `Phí sàn ${(L.l30.take * 100).toFixed(1)}% NMV (cao)`, steps: ['Đối chiếu gói Voucher Xtra / Freeship Xtra có còn hiệu quả', 'Kiểm tra phí cố định theo ngành hàng'], closeWhen: 'Phí sàn ≤ 30% NMV' });
     // --- added from the Director playbook ---
-    for (const f of L.fs) if (f.b > hNow && f.price < P.floorPrice) add({ ...o, rule: 'L-FS-PRICE', subject: f.id, sev: 'P0', title: `Khung Flash Sale ${new Date((f.a + TZ) * 1000).toISOString().slice(5, 16).replace('T', ' ')} đặt giá ${vnd(f.price)} < sàn`, steps: ['Sửa giá Flash Sale ≥ 315.000₫ hoặc xoá khung', 'Giải trình người cài giá'], closeWhen: 'Không còn khung FS dưới giá sàn' });
+    for (const f of L.fs) if (P.floorPrice && f.b > hNow && f.price < P.floorPrice) add({ ...o, rule: 'L-FS-PRICE', subject: f.id, sev: 'P0', title: `Khung Flash Sale ${new Date((f.a + TZ) * 1000).toISOString().slice(5, 16).replace('T', ' ')} đặt giá ${vnd(f.price)} < sàn`, steps: ['Sửa giá Flash Sale ≥ 315.000₫ hoặc xoá khung', 'Giải trình người cài giá'], closeWhen: 'Không còn khung FS dưới giá sàn' });
     const discLive = L.disc.some(x => x.a <= hNow && x.b > hNow), fsLive = L.fs.some(x => x.a <= hNow && x.b > hNow);
     const promoPrice = Object.values(L.products).some(p => p.promo && p.list && p.promo < p.list);
     if (L.disc.length + L.fs.length && !discLive && !fsLive && !promoPrice) add({ ...o, rule: 'L-DISCOUNT-NONE', sev: 'P1', title: 'Sản phẩm không có giá khuyến mãi (khách đang thấy 700.000₫)', steps: ['Tạo chương trình giảm giá của shop', 'Đảm bảo giá sau giảm ≥ 315.000₫'], closeWhen: 'Có shop discount hoặc FS đang chạy' });
     const defect = L.reviews.filter(r => r.date > isoAdd(L.today, -7) && /gãy|lỗi|thiếu ốc|thiếu linh kiện|móp|lung lay|bánh xe|vỡ|cong/i.test(r.text));
     if (defect.length >= 2) add({ ...o, rule: 'L-REV-DEFECT', sev: 'P1', title: `${defect.length} đánh giá 7 ngày phản ánh lỗi sản phẩm`, detail: defect.slice(0, 3).map(r => '“' + r.text.slice(0, 80) + '”').join(' · '), steps: ['Tổng hợp lỗi theo loại (linh kiện, đóng gói, bánh xe)', 'Kiểm tra lô hàng tại kho Suối Nghệ', 'Bổ sung hướng dẫn lắp / linh kiện dự phòng trong hộp'], closeWhen: 'evidence: báo cáo nguyên nhân + biện pháp' });
-    for (const [sku, p] of Object.entries(L.products)) if (p.list && p.list !== P.listPrice) add({ ...o, rule: 'L-PRICE-CHANGE', subject: sku, sev: 'P2', title: `Giá niêm yết ${sku || 'SP'} là ${vnd(p.list)} (kế hoạch ${vnd(P.listPrice)})`, steps: ['Xác nhận thay đổi giá có được duyệt không', 'Đưa giá về kế hoạch nếu chưa duyệt'], closeWhen: 'Giá niêm yết = 700.000₫ hoặc chị duyệt' });
+    for (const [sku, p] of Object.entries(L.products)) if (P.listPrice && p.list && p.list !== P.listPrice) add({ ...o, rule: 'L-PRICE-CHANGE', subject: sku, sev: 'P2', title: `Giá niêm yết ${sku || 'SP'} là ${vnd(p.list)} (kế hoạch ${vnd(P.listPrice)})`, steps: ['Xác nhận thay đổi giá có được duyệt không', 'Đưa giá về kế hoạch nếu chưa duyệt'], closeWhen: 'Giá niêm yết = 700.000₫ hoặc chị duyệt' });
     const a3 = L.ads.filter(a => a.date > isoAdd(L.today, -3));
     if (sum(a3, a => a.cost) >= 300000 && !sum(a3, a => a.ord)) add({ ...o, rule: 'L-ADS-ZERO-ORDER', sev: 'P1', title: `Ads chi ${vnd(sum(a3, a => a.cost))} 3 ngày, 0 đơn`, impactVnd: sum(a3, a => a.cost), steps: ['Tạm dừng nhóm quảng cáo', 'Rà từ khoá tốn tiền'], closeWhen: 'Có đơn từ Ads hoặc chi 3 ngày < 300.000₫' });
-    if (L.tgtUnits && L.dNow >= 3) { const u3 = sum(L.orders.filter(x => !x.cx && x.date > isoAdd(L.today, -3)), x => x.q); if (u3 >= 2 * (L.tgtUnits / L.dIn * 3) && L.l7.unitNet >= P.netPerUnit) add({ ...o, rule: 'L-OPP-SURGE', sev: 'P2', kind: 'opportunity', title: `Đơn tăng mạnh: ${u3} pcs 3 ngày (gấp đôi kế hoạch)`, steps: ['Tăng ngân sách Ads khi đang có đà', 'Đảm bảo tồn Shopee đủ', 'Đăng ký thêm khung FS'], closeWhen: 'evidence: hành động đã làm' }); }
-    if (L.projUnits > 0 && L.dNow >= 7 && P.rent / L.projUnits > 70000) add({ ...o, owner: 'manager', rule: 'L-RENT-PER-UNIT', sev: 'P2', title: `Chi phí thuê kho ≈ ${vnd(P.rent / L.projUnits)}/kệ tháng này`, detail: '20 triệu/tháng ÷ sản lượng dự phóng. Ngưỡng 70.000₫/kệ.', steps: ['Xem phương án thu hẹp diện tích thuê', 'Đẩy kênh B2B/kênh mới để tăng sản lượng'], closeWhen: 'Chi phí thuê ≤ 70.000₫/kệ' });
-    if (!L.tgtUnits) add({ ...o, owner: 'manager', rule: 'X-TARGET-MISSING', subject: 'local', sev: 'P1', title: `Chưa có target Shopee tháng ${L.ym}`, steps: ['Bổ sung target tháng vào kế hoạch kệ 3 tầng'], closeWhen: 'Có target tháng hiện tại' });
-  }
+    if (P.months.length && L.tgtUnits && L.dNow >= 3) { const u3 = sum(L.orders.filter(x => !x.cx && x.date > isoAdd(L.today, -3)), x => x.q); if (u3 >= 2 * (L.tgtUnits / L.dIn * 3) && L.l7.unitNet >= P.netPerUnit) add({ ...o, rule: 'L-OPP-SURGE', sev: 'P2', kind: 'opportunity', title: `Đơn tăng mạnh: ${u3} pcs 3 ngày (gấp đôi kế hoạch)`, steps: ['Tăng ngân sách Ads khi đang có đà', 'Đảm bảo tồn Shopee đủ', 'Đăng ký thêm khung FS'], closeWhen: 'evidence: hành động đã làm' }); }
+    if (P.rent && L.projUnits > 0 && L.dNow >= 7 && P.rent / L.projUnits > 70000) add({ ...o, owner: 'manager', rule: 'L-RENT-PER-UNIT', sev: 'P2', title: `Chi phí thuê kho ≈ ${vnd(P.rent / L.projUnits)}/kệ tháng này`, detail: '20 triệu/tháng ÷ sản lượng dự phóng. Ngưỡng 70.000₫/kệ.', steps: ['Xem phương án thu hẹp diện tích thuê', 'Đẩy kênh B2B/kênh mới để tăng sản lượng'], closeWhen: 'Chi phí thuê ≤ 70.000₫/kệ' });
+    if (P.months.length && !L.tgtUnits) add({ ...o, owner: 'manager', rule: 'X-TARGET-MISSING', subject: 'local', sev: 'P1', title: `Chưa có target Shopee tháng ${L.ym}`, steps: ['Bổ sung target tháng vào kế hoạch kệ 3 tầng'], closeWhen: 'Có target tháng hiện tại' });
+    if (tag) for (let k = start; k < out.length; k++) { const i = out[k]; i.rule = i.rule.replace(/^L-/, tag + '-').replace(/^X-TARGET-MISSING$/, 'X-TARGET-MISSING'); i.key = i.rule + (i.subject ? '|' + i.subject : ''); i.title = (o.label ? o.label + ': ' : '') + i.title; }
+  };
+  if (L) runShop(L, { channel: 'local', owner: 'phu' });
+  if (N) runShop(N, { channel: 'nikon', owner: ctx.nikonOwner || 'phu', label: 'Nikon' }, 'N');
+  if (ctx.nikonErr) add({ rule: 'X-DATA-N', channel: 'system', owner: 'manager', sev: 'P0', title: 'Không đọc được dữ liệu Shopee Nikon', detail: ctx.nikonErr, steps: ['Mở dash Local, chọn shop Nikon để kiểm tra', 'Cài đặt › Kết nối dữ liệu nguồn lại bằng tài khoản dash Local'], closeWhen: 'Command Center đọc lại được dữ liệu Nikon' });
+  if (N && N.updatedAt && hoursSince(N.updatedAt) > 26) add({ rule: 'N-DATA-STALE', channel: 'system', owner: 'manager', sev: 'P0', title: `Dữ liệu Shopee Nikon chưa cập nhật ${Math.round(hoursSince(N.updatedAt))} giờ`, steps: ['Chạy lại sync hằng ngày của dash Local (LF + Nikon)'], closeWhen: 'Dữ liệu Nikon mới hơn 26 giờ' });
   // event-type issues (cases, returns, deductions, evidence-closed) disappear once the manager approved the task for that exact key
   const closed = ctx.closedKeys || new Set();
   for (let k = out.length - 1; k >= 0; k--) { const i = out[k]; if (closed.has(i.key) && (String(i.closeWhen || '').startsWith('evidence') || i.subject)) out.splice(k, 1); }
@@ -398,6 +404,6 @@ function routines(defs, issues, events, today = todayVN()) {
   });
 }
 
-const api = { modelGlobal, modelLocal, detect, ledger, routines, ROUTINES, LOCAL_PLAN, OWNERS, SLA, SEV, bump, isoAdd, isoDiff, todayVN, vnISO, periodKey };
+const api = { NIKON_PLAN, modelGlobal, modelLocal, detect, ledger, routines, ROUTINES, LOCAL_PLAN, OWNERS, SLA, SEV, bump, isoAdd, isoDiff, todayVN, vnISO, periodKey };
 if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.CCE = api;
 })(typeof window !== 'undefined' ? window : globalThis);
